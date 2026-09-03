@@ -10,5 +10,4 @@ const files=[];const walk=dir=>{for(const name of readdirSync(dir)){const file=j
 const assets={};for(const file of files){const path='/'+relative(staticDir,file).replaceAll('\\','/');assets[path]={data:readFileSync(file).toString('base64'),ext:extname(file).slice(1)}}
 mkdirSync(join(dist,'server'),{recursive:true});mkdirSync(join(dist,'.openai'),{recursive:true});
 writeFileSync(join(dist,'server/index.js'),`const STATIC_ASSETS=${JSON.stringify(assets)};\n${readFileSync(join(root,'worker/index.js'),'utf8')}`);
-writeFileSync(join(dist,'.openai/hosting.json'),readFileSync(join(root,'.openai/hosting.json')));
 console.log(`Built Worker with ${files.length} embedded assets`);
