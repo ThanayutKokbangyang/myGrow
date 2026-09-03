@@ -160,6 +160,34 @@ function App() {
   const posRef = useRef(pos);
   const directionRef = useRef(direction);
   const celebrateTimer = useRef(null);
+  const audioCtx = useRef(null);
+  const playBeep = (freq = 880, duration = 0.15, volume = 0.25) => {
+    try {
+      if (!audioCtx.current)
+        audioCtx.current = new (window.AudioContext ||
+          window.webkitAudioContext)();
+      const ctx = audioCtx.current;
+      if (ctx.state === "suspended") ctx.resume();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(volume, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(
+        0.0001,
+        ctx.currentTime + duration,
+      );
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + duration);
+    } catch {}
+  };
+  const playFinish = () => {
+    [880, 1108, 1318].forEach((f, i) =>
+      setTimeout(() => playBeep(f, 0.28, 0.3), i * 180),
+    );
+  };
   useEffect(() => {
     let active = true;
     loadActivities()
@@ -189,8 +217,10 @@ function App() {
             setRunning(false);
             setSessions((s) => s + 1);
             notify("Pomodoro สำเร็จ! +25 XP");
+            playFinish();
             return 25 * 60;
           }
+          if (v <= 11) playBeep(660, 0.1, 0.18);
           return v - 1;
         }),
       1000,
