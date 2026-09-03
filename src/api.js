@@ -15,4 +15,4 @@ export const clearOwnerToken=()=>localStorage.removeItem(TOKEN_KEY);
 export async function verifyOwner(code){const result=await api('/api/auth',{method:'POST',body:JSON.stringify({code})});localStorage.setItem(TOKEN_KEY,result.token);return result}
 export async function loadActivities(){const result=await api('/api/activities');return result.items||[]}
 export async function createActivity(item){return api('/api/activities',{method:'POST',body:JSON.stringify(item)})}
-export async function deleteActivity(id){return api(`/api/activities/${encodeURIComponent(id)}`,{method:'DELETE'})}
+export async function deleteActivity(id){return api('/api/activities',{method:'POST',body:JSON.stringify({_action:'delete',id})})}

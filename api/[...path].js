@@ -110,6 +110,14 @@ export default async function handler(request) {
   if (path === '/api/activities' && request.method === 'POST') {
     if (!(await validToken(request))) return json({ error: 'กรุณายืนยันว่าเป็นเท่ก่อนบันทึก' }, 401);
     const item = await request.json().catch(() => null);
+    if (item?._action === 'delete') {
+      if (!item.id) return json({ error: 'ไม่พบรายการที่จะลบ' }, 400);
+      try {
+        return json(await sheetRequest({ action: 'delete', id: String(item.id) }));
+      } catch (error) {
+        return json({ error: error.message }, 503);
+      }
+    }
     if (!item?.topic) return json({ error: 'กรุณาระบุหัวข้อที่ฝึก' }, 400);
     try {
       return json(await sheetRequest({ action: 'append', item }));
