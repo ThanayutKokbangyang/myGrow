@@ -160,6 +160,7 @@ function App() {
   const posRef = useRef(pos);
   const directionRef = useRef(direction);
   const celebrateTimer = useRef(null);
+  const deletingIds = useRef(new Set());
   const audioCtx = useRef(null);
   const playBeep = (freq = 880, duration = 0.15, volume = 0.25) => {
     try {
@@ -357,33 +358,37 @@ function App() {
   });
 }
   async function saveNow(data) {
+    const item = {
+      ...data,
+      id: String(Date.now()),
+      date: new Date().toISOString(),
+      minutes: Number(data.minutes),
+      before: Number(data.before),
+      after: Number(data.after),
+      difficulty: Number(data.difficulty),
+    };
+    // แสดงผลทันที (optimistic) แล้วค่อยซิงค์เบื้องหลัง
+    setLogs((v) => [item, ...v.filter((x) => String(x.id) !== String(item.id))]);
+    setModal(null);
+    setCelebrating(true);
+    clearTimeout(celebrateTimer.current);
+    celebrateTimer.current = setTimeout(() => setCelebrating(false), 2400);
+    notify(`บันทึกแล้ว +${item.minutes * 2} XP`);
     try {
-      const item = {
-        ...data,
-        id: String(Date.now()),
-        date: new Date().toISOString(),
-        minutes: Number(data.minutes),
-        before: Number(data.before),
-        after: Number(data.after),
-        difficulty: Number(data.difficulty),
-      };
       const result = await createActivity(item);
-      setLogs((v) => [
-        result.item || item,
-        ...v.filter((x) => String(x.id) !== String(item.id)),
-      ]);
-      setModal(null);
-      setCelebrating(true);
-      clearTimeout(celebrateTimer.current);
-      celebrateTimer.current = setTimeout(() => setCelebrating(false), 2400);
-      notify(`บันทึกลง Google Sheet แล้ว +${item.minutes * 2} XP`);
+      if (result.item)
+        setLogs((v) =>
+          v.map((x) => (String(x.id) === String(item.id) ? result.item : x)),
+        );
     } catch (error) {
+      // ถอนรายการที่เพิ่งเพิ่มออกถ้าซิงค์ไม่สำเร็จ
+      setLogs((v) => v.filter((x) => String(x.id) !== String(item.id)));
       if (error.status === 401) {
         clearOwnerToken();
         setVerify({ type: "save", data });
         return;
       }
-      notify(error.message);
+      notify("บันทึกไม่สำเร็จ: " + error.message);
     }
   }
   function save(data) {
@@ -392,20 +397,30 @@ function App() {
       setVerify({ type: "save", data });
       return;
     }
-    saveNow(data);
+    return saveNow(data);
   }
   async function removeNow(id) {
+    if (deletingIds.current.has(String(id))) return;
+    deletingIds.current.add(String(id));
+    // เอาออกจากหน้าจอทันที (optimistic) พร้อมเก็บไว้เผื่อถอนกลับ
+    let removed = null;
+    setLogs((v) => {
+      removed = v.find((x) => String(x.id) === String(id)) || null;
+      return v.filter((x) => String(x.id) !== String(id));
+    });
+    notify("ลบแล้ว");
     try {
       await deleteActivity(id);
-      setLogs((v) => v.filter((x) => String(x.id) !== String(id)));
-      notify("ลบจาก Google Sheet แล้ว");
     } catch (error) {
+      if (removed) setLogs((v) => [removed, ...v]);
       if (error.status === 401) {
         clearOwnerToken();
         setVerify({ type: "delete", id });
         return;
       }
-      notify(error.message);
+      notify("ลบไม่สำเร็จ: " + error.message);
+    } finally {
+      deletingIds.current.delete(String(id));
     }
   }
   function remove(id) {
@@ -763,19 +778,24 @@ function VerifyModal({ onClose, onConfirm }) {
 
 function LogModal({ initial, onClose, onSave }) {
   const [f, setF] = useState(initial);
+  const [saving, setSaving] = useState(false);
   const upd = (k, v) => setF((x) => ({ ...x, [k]: v }));
+  const submit = async (e) => {
+    e.preventDefault();
+    if (saving) return;
+    setSaving(true);
+    try {
+      await onSave(f);
+    } finally {
+      setSaving(false);
+    }
+  };
   return (
     <div
       className="backdrop"
-      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+      onMouseDown={(e) => e.target === e.currentTarget && !saving && onClose()}
     >
-      <form
-        className="modal"
-        onSubmit={(e) => {
-          e.preventDefault();
-          onSave(f);
-        }}
-      >
+      <form className="modal" onSubmit={submit}>
         <button type="button" className="close" onClick={onClose}>
           <PixelIcon name="close" />
         </button>
@@ -879,12 +899,12 @@ function LogModal({ initial, onClose, onSave }) {
           </label>
         </div>
         <div className="actions">
-          <button type="button" onClick={onClose}>
+          <button type="button" onClick={onClose} disabled={saving}>
             ยกเลิก
           </button>
-          <button className="primary" type="submit">
+          <button className="primary" type="submit" disabled={saving}>
             <PixelIcon name="check" />
-            บันทึกกิจกรรม
+            {saving ? "กำลังบันทึก..." : "บันทึกกิจกรรม"}
           </button>
         </div>
       </form>
