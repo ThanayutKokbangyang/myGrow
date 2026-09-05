@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
+import {MusicPlayer, SmallWins, unlockSound, woodStep, winSound} from "./comfort";
 import {
   clearOwnerToken,
   createActivity,
@@ -134,6 +135,10 @@ function findWalkPath(start,end){
 
 function App() {
   const [view, setView] = useState("today");
+  const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem("grow-sound") !== "off");
+  const soundRef = useRef(soundEnabled);
+  soundRef.current = soundEnabled;
+  const celebrateSound = () => { if(soundRef.current) winSound(); };
   const [logs, setLogs] = useState(() =>
     JSON.parse(
       localStorage.getItem("grow-logs-cache") ||
@@ -163,6 +168,7 @@ function App() {
   const deletingIds = useRef(new Set());
   const audioCtx = useRef(null);
   const playBeep = (freq = 880, duration = 0.15, volume = 0.25) => {
+    if (!soundRef.current) return;
     try {
       if (!audioCtx.current)
         audioCtx.current = new (window.AudioContext ||
@@ -184,11 +190,14 @@ function App() {
       osc.stop(ctx.currentTime + duration);
     } catch {}
   };
-  const playFinish = () => {
-    [880, 1108, 1318].forEach((f, i) =>
-      setTimeout(() => playBeep(f, 0.28, 0.3), i * 180),
-    );
-  };
+  const playFinish = celebrateSound;
+  useEffect(() => {
+    if (!walking || view !== "today" || !soundEnabled) return;
+    const step = () => { if (!document.hidden) woodStep(); };
+    step();
+    const timer = setInterval(step, 280);
+    return () => clearInterval(timer);
+  }, [walking, view, soundEnabled]);
   useEffect(() => {
     let active = true;
     loadActivities()
@@ -358,6 +367,7 @@ function App() {
       setModal(null);
       setGrowthEvent(item.id);
       setCelebrating(true);
+      celebrateSound();
       clearTimeout(celebrateTimer.current);
       celebrateTimer.current = setTimeout(() => setCelebrating(false), 2400);
       notify(`บันทึกแล้ว +${item.minutes * 2} XP · ขึ้นอีก 1 ขั้น!`);
@@ -418,7 +428,7 @@ function App() {
     if (pending?.type === "delete") await removeNow(pending.id);
   }
   return (
-    <div className="app">
+    <div className="app" onPointerDownCapture={unlockSound} onKeyDownCapture={unlockSound}>
       <aside>
         <div className="brand">
           <PixelIcon name="sprout" />
@@ -428,6 +438,7 @@ function App() {
           ["today", "/ui/nav-home.png", "วันนี้"],
           ["history", "/ui/nav-history.png", "ประวัติ"],
           ["progress", "/ui/nav-progress.png", "พัฒนาการ"],
+          ["wins", "/ui/pixel/check.png", "ความสำเร็จเล็ก ๆ"],
         ].map(([k, asset, l]) => (
           <button
             className={view === k ? "active" : ""}
@@ -440,6 +451,7 @@ function App() {
             <span className="navLabel">{l}</span>
           </button>
         ))}
+        <button className="soundToggle" title={soundEnabled ? "ปิดเสียงเกม" : "เปิดเสียงเกม"} aria-label={soundEnabled ? "ปิดเสียงเกม" : "เปิดเสียงเกม"} aria-pressed={soundEnabled} onClick={() => {const next=!soundEnabled;setSoundEnabled(next);try{localStorage.setItem("grow-sound",next?"on":"off")}catch{}}}>{soundEnabled?"♪":"♫"}<span className="navLabel">{soundEnabled?"เสียงเปิด":"เสียงปิด"}</span></button>
         <div className="asideBottom">
           <div className="avatarMini">
             <img src="/tae-avatar.png" alt="" />
@@ -477,6 +489,8 @@ function App() {
               setModal,
             }}
           />
+        ) : view === "wins" ? (
+          <SmallWins onSuccess={celebrateSound} />
         ) : view === "history" ? (
           <HistoryView logs={logs} remove={remove} />
         ) : (
@@ -647,7 +661,7 @@ function Today({
           </div>
         </div>
         <div className="card focus">
-          <b>Focus time</b>
+          <header className="focusHeading"><b>Focus time</b><MusicPlayer /></header>
           <div>
             <span className="focusIcon">
               <img src="/ui/focus.png" alt="" />
