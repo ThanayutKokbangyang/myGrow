@@ -359,3 +359,192 @@ html,body{overflow-y:auto!important;overflow-x:hidden}
   input,select,textarea{font-size:max(16px,1em)}
   .fields input,.fields select,.fields textarea,.musicInput input,.searchBox input{font-size:16px}
 }
+
+/* Pomodoro focus stage: an expand button on the Pomodoro card opens a
+   full-screen video picker; once a video plays the timer card rides along in
+   the top-right corner. Saved videos live in localStorage on this device.
+   Styled with the same pixel panels, paper gradient and chunky shadows as the
+   rest of the app. */
+.metricTools{display:flex;align-items:center;gap:8px}
+.pixelDashboard .timer .stageOpen,.stageOpen{display:grid;place-items:center;
+  width:30px;height:30px;padding:0;flex:0 0 auto;cursor:pointer;
+  border:3px solid #172238;border-radius:2px;background:#172c49;color:#ffe097;
+  box-shadow:inset 2px 2px #3a5a80,3px 3px #9c7746}
+.stageOpen svg{display:block;width:17px;height:17px}
+.pixelDashboard .timer .stageOpen:hover,.stageOpen:hover{background:#24406a;filter:brightness(1.08)}
+.pixelDashboard .timer .stageOpen:active,.stageOpen:active{transform:translate(3px,3px);
+  box-shadow:inset 2px 2px #10233d,0 0 #9c7746}
+
+.focusStage{position:fixed;inset:0;z-index:40;color:#122035;display:flex;flex-direction:column;
+  overflow:hidden;background:#071426;
+  background-image:linear-gradient(90deg,#ffffff08 1px,transparent 1px),linear-gradient(#ffffff08 1px,transparent 1px);
+  background-size:32px 32px}
+.focusVideo{position:absolute;inset:0;display:grid;place-items:center;background:#050b14}
+.focusVideo iframe{width:min(100%,calc(100dvh*16/9));height:min(100%,calc(100dvw*9/16));
+  aspect-ratio:16/9;border:0;display:block}
+
+/* Shared pixel panel + control styling inside the stage. */
+.focusLibrary form,.focusList li,.focusEmpty{
+  background:linear-gradient(145deg,#fff8df,#f5dda6);border:4px solid #526987;border-radius:4px;
+  box-shadow:inset 0 0 0 3px #fffdf3,5px 6px #020811}
+.focusStage button{font:800 13px 'Courier New',monospace;text-transform:uppercase;padding:10px 13px;
+  border:3px solid #263a56;border-radius:2px;background:#f6e6bf;color:#26364b;cursor:pointer;
+  box-shadow:inset 2px 2px #fffaea,3px 3px #8a714d;white-space:nowrap}
+.focusStage button:hover{filter:brightness(1.06)}
+.focusStage button:active{transform:translate(3px,3px);box-shadow:inset 2px 2px #e6d3a8}
+.focusPrimary{background:#238f84!important;color:#fff!important;border-color:#123d3a!important;
+  box-shadow:inset 3px 3px #6ed6ca,3px 3px #132338!important}
+.focusStop{background:#c0492f!important;color:#fff!important;border-color:#5d1f14!important;
+  box-shadow:inset 3px 3px #f08e72,3px 3px #132338!important}
+
+.focusLibrary{flex:1;min-height:0;overflow:auto;width:min(760px,100%);margin:0 auto;padding:6px 20px 120px}
+.focusLibrary header{color:#fff3d3;text-shadow:2px 2px #020811}
+.focusLibrary header h2{margin:0 0 4px;font-size:clamp(20px,2.4vw,27px)}
+.focusLibrary header p{margin:0 0 20px;color:#9fb6d3;font-size:14px;text-shadow:none}
+.focusLibrary form{padding:18px 20px 20px}
+.focusLibrary label{display:block;margin:12px 0 6px;font:800 12px 'Courier New',monospace;
+  letter-spacing:1px;color:#7c5f28}
+.focusLibrary label:first-child{margin-top:0}
+.focusLibrary input{width:100%;padding:11px;border:3px solid #b99a5e;border-radius:2px;
+  background:#fffdf3;color:#26364b;font:inherit;outline:0;box-shadow:inset 3px 3px #d9c9a3}
+.focusLibrary input:focus{border-color:#2a9d8f;box-shadow:inset 3px 3px #cfe7e2,0 0 0 3px #2a9d8f44}
+.focusAddRow{display:flex;gap:10px;align-items:stretch}
+.focusAddRow input{flex:1;min-width:0}
+.focusError{color:#a5341c;font-size:13px;font-weight:700;margin:10px 0 0}
+.focusEmpty{margin-top:22px;padding:26px 14px;text-align:center;color:#8b6530;
+  font:700 14px 'Noto Sans Thai',sans-serif}
+.focusList{list-style:none;margin:22px 0 0;padding:0;display:flex;flex-direction:column;gap:12px}
+.focusList li{display:grid;grid-template-columns:82px minmax(0,1fr) auto auto;gap:12px;
+  align-items:center;padding:10px}
+.focusList img{width:82px;height:46px;object-fit:cover;border:3px solid #172238;
+  box-shadow:3px 3px #9c7746;background:#16273f;image-rendering:auto}
+.focusList b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-size:15px;color:#26364b}
+
+/* The stage reuses the dashboard's Pomodoro card, so mirror the sizing rules
+   that normally live under `.pixelDashboard .timer`. */
+.focusTimer{order:-1;align-self:flex-end;margin:14px 16px 0;width:min(340px,calc(100vw - 32px))}
+.focusTimer.floating{position:absolute;top:16px;right:16px;z-index:4;margin:0;order:0;align-self:auto;
+  width:min(310px,calc(100vw - 24px))}
+.focusTimerGrip{touch-action:none;cursor:grab;user-select:none;margin-bottom:6px;padding:4px 9px;
+  align-self:flex-end;font:800 10px 'Courier New',monospace;letter-spacing:1px;color:#ffe097;
+  background:#172c49;border:3px solid #0a1729;border-radius:2px;box-shadow:3px 3px #020811}
+.focusTimerGrip:active{cursor:grabbing;transform:translate(3px,3px);box-shadow:none}
+.focusTimer.floating{display:flex;flex-direction:column}
+.focusTimer .timer{padding:14px;margin:0}
+.focusTimer .metricTitle b{font:900 17px 'Courier New',monospace;color:#182b49}
+.focusTimer .metricTitle strong{font:700 16px 'Noto Sans Thai',sans-serif;color:#122035}
+.focusTimer .timerBody{display:grid;grid-template-columns:auto minmax(120px,1fr);
+  grid-template-rows:minmax(74px,auto) 42px;column-gap:14px;row-gap:10px;align-items:center;margin:6px 0 0}
+.focusTimer .tomatoRing{grid-column:1;grid-row:1;width:74px;height:74px;margin:0}
+.focusTimer .tomatoRing:before{inset:8px}
+.focusTimer .tomatoRing img{width:54px;height:54px}
+.focusTimer .timerReadout{grid-column:2;grid-row:1;text-align:center}
+.focusTimer .timerReadout strong{display:block;margin:0;font:900 clamp(30px,3vw,38px) 'Courier New',monospace;
+  letter-spacing:2px;color:#122440}
+.focusTimer .timerReadout small{display:block;margin-top:5px;color:#8b6530;
+  font:800 10px 'Courier New',monospace;letter-spacing:1px}
+.focusTimer .timerActions{grid-column:1/-1;grid-row:2;display:grid;grid-template-columns:1.4fr 1fr;gap:9px}
+.focusTimer .timerActions button{height:42px;font-size:13px}
+/* Buttons inside the card keep their own look, not the stage's generic one. */
+.focusStage .timerActions button{text-transform:none;font-family:'Courier New',monospace}
+
+/* The control bar hides so the video is unobstructed, and slides back in when
+   the pointer reaches the bottom of the screen (or anything in it is focused).
+   Touch devices have no hover, so there it simply stays visible. */
+.focusBottom{position:absolute;left:0;right:0;bottom:0;z-index:3;height:86px;
+  display:flex;align-items:flex-end;justify-content:center}
+.focusBar{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;width:100%;
+  padding:14px 12px calc(14px + env(safe-area-inset-bottom));
+  background:linear-gradient(transparent,#050b14dd 55%);
+  transition:opacity .18s ease,transform .18s ease}
+@media(hover:hover){
+  .focusBar{opacity:0;transform:translateY(12px);pointer-events:none}
+  .focusBottom.show .focusBar,.focusBar:focus-within{opacity:1;transform:none;pointer-events:auto}
+}
+.focusClose{background:#172c49!important;color:#ffe097!important;border-color:#0a1729!important;
+  box-shadow:inset 2px 2px #3a5a80,3px 3px #020811!important}
+@media(max-width:620px){
+  .focusTimer.floating{top:10px;right:10px;width:min(240px,calc(100vw - 20px))}
+  .focusTimer.floating .timerBody{grid-template-columns:auto minmax(90px,1fr)}
+  .focusTimer.floating .tomatoRing{width:60px;height:60px}
+  .focusTimer.floating .tomatoRing img{width:44px;height:44px}
+  .focusTimer.floating .timerReadout strong{font-size:28px}
+  .focusList li{grid-template-columns:64px minmax(0,1fr);row-gap:8px}
+  .focusList img{width:64px;height:36px}
+  .focusStage button{padding:9px 11px;font-size:12px}
+}
+
+/* While the focus stage is open the draggable music player floats above it, so
+   the video can be muted and another track played over the top. */
+body.stage-open .musicWidget{z-index:45}
+
+/* Entrance animations. Both popups used to just appear; give them the same
+   springy pop the activity modal already uses, and let each one grow from the
+   thing that opened it. */
+@keyframes stageFade{from{opacity:0}}
+@keyframes stagePop{from{opacity:0;transform:translateY(18px) scale(.97)}}
+@keyframes stageDrop{from{opacity:0;transform:translateY(-14px) scale(.94)}}
+@keyframes shellPop{from{opacity:0;transform:translateY(8px) scale(.94)}}
+@keyframes barRise{from{opacity:0;transform:translateY(14px)}}
+
+.focusStage{animation:stageFade .2s ease}
+.focusStage .focusLibrary,.focusStage .focusVideo{animation:stagePop .34s cubic-bezier(.2,.8,.3,1.2)}
+/* The timer drops in from the corner it lands in. */
+.focusTimer{animation:stageDrop .38s cubic-bezier(.2,.8,.3,1.2) .06s backwards}
+.focusBottom.show .focusBar{animation:barRise .22s ease}
+
+/* The music panel grows out of its toggle button, so the origin follows
+   whichever side the panel opened on. */
+.musicWidget.open .musicShell{animation:shellPop .24s cubic-bezier(.2,.8,.3,1.2)}
+.musicWidget.v-up .musicShell{transform-origin:bottom right}
+.musicWidget.v-down .musicShell{transform-origin:top right}
+.musicWidget>.musicToggle{transition:background .15s ease,color .15s ease,transform .08s ease}
+.stageOpen{transition:background .15s ease,transform .08s ease,box-shadow .08s ease}
+
+@media(prefers-reduced-motion:reduce){
+  .focusStage,.focusStage .focusLibrary,.focusStage .focusVideo,.focusTimer,
+  .focusBottom.show .focusBar,.musicWidget.open .musicShell{animation:none}
+}
+
+/* Progress page. It still wore the pre-pixel look: flat white stat tiles with
+   rounded corners, rounded skill icons, and a page slab stretched to the full
+   viewport height. Rebuild it from the same panel vocabulary as the dashboard. */
+/* Same full-height paper slab as the history page, so the two read alike. */
+.progressPage{padding:28px 30px 34px}
+.progressPage>.eyebrow{font:800 12px 'Courier New',monospace;letter-spacing:2px;color:#a9761f}
+.progressPage>h1{margin-bottom:22px}
+
+.progressPage .summary{gap:var(--panel-gap);margin:0 0 var(--panel-gap)}
+.progressPage .summary>div{gap:14px;padding:16px 18px;border-radius:4px;
+  background:linear-gradient(145deg,var(--paper-top),var(--paper-bottom));
+  border:4px solid var(--panel-edge);box-shadow:inset 0 0 0 3px #fffdf3,5px 6px var(--panel-shadow)}
+.progressPage .summary b{font:900 26px 'Courier New',monospace;color:#122440;line-height:1}
+.progressPage .summary span>:not(b),.progressPage .summary span{font-size:13px;color:#7c5f28;font-weight:700}
+.progressPage .summary>div>.pixelIcon{filter:drop-shadow(2px 2px #9c7746)}
+
+.progressPage .progressCard{margin:0 0 var(--panel-gap);padding:20px 22px 24px}
+.progressPage .progressCard h2{margin-bottom:18px;font-size:21px;color:#182b49}
+.progressPage .progressRow{margin:0;padding:9px 0;border-bottom:3px dashed #d5b77a}
+.progressPage .progressRow:last-child{border-bottom:0}
+.progressPage .progressRow>span{width:36px;height:36px;border-radius:2px;border:2px solid #172238;
+  box-shadow:3px 3px #9c7746}
+.progressPage .progressRow>b{font:800 13px 'Courier New',monospace;text-transform:uppercase;color:#26364b}
+.progressPage .progressRow .bar{height:14px}
+.progressPage .progressRow strong{font:800 13px 'Courier New',monospace;color:#7c5f28}
+
+.progressPage .insight{margin:0;border-radius:4px;border:4px solid #385577;
+  box-shadow:inset 0 0 0 3px #1a365e,5px 6px var(--panel-shadow);background:#102544}
+.progressPage .insight b{font:900 16px 'Noto Sans Thai',sans-serif;color:#ffe097}
+.progressPage .insight>.pixelIcon{filter:drop-shadow(2px 2px #05101f)}
+@media(max-width:720px){
+  .progressPage{padding:20px 16px 26px}
+  .progressPage .summary>div{padding:13px 14px;gap:10px}
+  .progressPage .summary b{font-size:22px}
+  /* Icon, skill and minutes on one line; the bar gets the full width below. */
+  .progressPage .progressRow{grid-template-columns:34px minmax(0,1fr) auto;gap:6px 10px;padding:11px 0}
+  .progressPage .progressRow>span{width:32px;height:32px}
+  .progressPage .progressRow>b{grid-column:2;grid-row:1}
+  .progressPage .progressRow strong{grid-column:3;grid-row:1;text-align:right}
+  .progressPage .progressRow .bar{grid-column:1/-1;grid-row:2}
+}

@@ -11,7 +11,7 @@ const MUSIC_POS='grow-music-pos';
 // Drag-anywhere behaviour for the floating player. Position is kept as the
 // widget's top-left in pixels, clamped into the viewport on every drag and on
 // resize, so it can never end up off-screen.
-function useDraggable(ref,storageKey){
+export function useDraggable(ref,storageKey){
  const [pos,setPos]=useState(()=>{const v=read(storageKey,null);return v&&typeof v.x==='number'&&typeof v.y==='number'?v:null});
  const drag=useRef(null),moved=useRef(false);
  const clamp=useCallback((x,y)=>{

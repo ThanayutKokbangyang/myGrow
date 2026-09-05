@@ -3,6 +3,8 @@ import { createRoot } from "react-dom/client";
 import "./styles.css";
 import {contains,roomGeometry} from "./room-geometry";
 import {MusicPlayer, SmallWins, unlockSound, woodStep, winSound} from "./comfort";
+import {FocusStage} from "./focus-stage";
+import {PixelIcon, PomodoroCard} from "./pomodoro-card";
 import {
   clearOwnerToken,
   createActivity,
@@ -54,10 +56,6 @@ const EMPTY = {
   next: "",
 };
 const dateKey = (d) => new Date(d).toLocaleDateString("th-TH");
-const uiIcon = (name) => `/ui/pixel/${name}.png`;
-function PixelIcon({ name, className = "" }) {
-  return <img className={`pixelIcon ${className}`} src={uiIcon(name)} alt="" />;
-}
 function findWalkPath(start,end,hitsTable){
   const step=1,minX=3,maxX=97,minY=12,maxY=94;
   const cols=Math.floor((maxX-minX)/step)+1,rows=Math.floor((maxY-minY)/step)+1;
@@ -143,6 +141,7 @@ function App() {
   const [walking, setWalking] = useState(false);
   const [timer, setTimer] = useState(25 * 60);
   const [running, setRunning] = useState(false);
+  const [stage, setStage] = useState(false);
   const [sessions, setSessions] = useState(() =>
     Number(localStorage.getItem("grow-sessions") || 0),
   );
@@ -205,6 +204,12 @@ function App() {
     [logs],
   );
   useEffect(() => localStorage.setItem("grow-sessions", sessions), [sessions]);
+  // Lets the floating music player lift itself above the focus stage, so the
+  // video can be muted and a different track played over it.
+  useEffect(() => {
+    document.body.classList.toggle("stage-open", stage);
+    return () => document.body.classList.remove("stage-open");
+  }, [stage]);
   useEffect(() => {
     if (!running) return;
     const id = setInterval(
@@ -464,6 +469,7 @@ function App() {
               setRunning,
               sessions,
               setModal,
+              openStage: () => setStage(true),
             }}
           />
         ) : view === "wins" ? (
@@ -490,6 +496,12 @@ function App() {
         </div>
       )}
       <MusicPlayer />
+      {stage && (
+        <FocusStage
+          onClose={() => setStage(false)}
+          {...{ timer, setTimer, running, setRunning, sessions }}
+        />
+      )}
     </div>
   );
 }
@@ -520,6 +532,7 @@ function Today({
   setRunning,
   sessions,
   setModal,
+  openStage,
 }) {
   const totals = Object.keys(SKILLS).reduce(
     (o, k) => ({
@@ -568,47 +581,25 @@ function Today({
       </section>
       <section className="sideCol">
         <GrowthStaircase count={growthCount} event={growthEvent} />
-        <div className="card timer">
-          <div className="metricTitle">
-            <b>Pomodoro</b>
-            <strong>{sessions}/6</strong>
-          </div>
-          <div className="timerBody">
-            <div
-              className={`tomatoRing ${running ? "ticking" : ""}`}
-              style={{ "--timer-progress": `${(timer / 1500) * 360}deg` }}
+        <PomodoroCard
+          {...{ timer, setTimer, running, setRunning, sessions }}
+          tools={
+            <button
+              type="button"
+              className="stageOpen"
+              onClick={openStage}
+              title="ขยายเต็มจอ พร้อมวิดีโอโฟกัส"
+              aria-label="ขยายเต็มจอ พร้อมวิดีโอโฟกัส"
             >
-              <img src="/ui/pomodoro.png" alt="" />
-            </div>
-            <div className="timerReadout">
-              <strong>
-                {String(Math.floor(timer / 60)).padStart(2, "0")}:
-                {String(timer % 60).padStart(2, "0")}
-              </strong>
-              <small>FOCUS SESSION</small>
-            </div>
-            <div className="timerActions">
-              <button
-                className={running ? "timerStop" : "timerStart"}
-                onClick={() => setRunning(!running)}
-              >
-                <PixelIcon name={running ? "pause" : "play"} />
-                {running ? "Pause" : "Start"}
-              </button>
-              <button
-                className="timerReset"
-                onClick={() => {
-                  setRunning(false);
-                  setTimer(25 * 60);
-                }}
-                aria-label="เริ่ม Pomodoro ใหม่"
-              >
-                <PixelIcon name="reset" />
-                Reset
-              </button>
-            </div>
-          </div>
-        </div>
+              <svg viewBox="0 0 16 16" shapeRendering="crispEdges" aria-hidden="true">
+                <path
+                  fill="currentColor"
+                  d="M1 1h6v2H3v4H1zM9 1h6v6h-2V3H9zM1 9h2v4h4v2H1zM13 9h2v6H9v-2h4z"
+                />
+              </svg>
+            </button>
+          }
+        />
         <div className="focusRow">
           <div className="card focus">
             <header className="focusHeading"><b>Focus time</b></header>
@@ -1160,7 +1151,7 @@ function Progress({ logs, xp, streak }) {
       ).toFixed(1)
     : 0;
   return (
-    <section className="page">
+    <section className="page progressPage">
       <p className="eyebrow">YOUR GROWTH</p>
       <h1>เราเก่งขึ้นแค่ไหนแล้ว</h1>
       <div className="summary">
@@ -1227,3 +1218,12 @@ function Progress({ logs, xp, streak }) {
   );
 }
 createRoot(document.getElementById("root")).render(<App />);
+
+// Installed-app support: registering the service worker is what lets iOS keep
+// Grow Room on the home screen and open it offline. Dev builds skip it so the
+// Vite HMR server is never served from the cache.
+if ("serviceWorker" in navigator && import.meta.env.PROD) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+  });
+}
