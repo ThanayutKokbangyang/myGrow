@@ -349,3 +349,13 @@ html,body{overflow-y:auto!important;overflow-x:hidden}
 .musicWidget>.musicToggle:active,.musicGrip:active{cursor:grabbing}
 .musicGrip{float:left;margin:-4px 10px 4px -4px;padding:2px 7px;font:900 15px/1 'Courier New',monospace;
   color:#8b6530;background:#f2e3bc;border:2px solid #c3b38c;border-radius:6px}
+
+/* iOS Safari zooms the page in whenever a focused field is smaller than 16px,
+   and every field here computed to 13.3px. Bump form controls to 16px on
+   touch-sized screens (never below) so typing no longer zooms — done this way
+   rather than with maximum-scale/user-scalable, which would also take pinch
+   zoom away from the whole app. */
+@media(max-width:820px){
+  input,select,textarea{font-size:max(16px,1em)}
+  .fields input,.fields select,.fields textarea,.musicInput input,.searchBox input{font-size:16px}
+}
