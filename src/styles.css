@@ -423,7 +423,7 @@ html,body{overflow-y:auto!important;overflow-x:hidden}
 
 /* The stage reuses the dashboard's Pomodoro card, so mirror the sizing rules
    that normally live under `.pixelDashboard .timer`. */
-.focusTimer{order:-1;align-self:flex-end;margin:14px 16px 0;width:min(340px,calc(100vw - 32px))}
+.focusTimer{width:min(330px,calc(100vw - 24px))}
 .focusTimer.floating{position:absolute;top:16px;right:16px;z-index:4;margin:0;order:0;align-self:auto;
   width:min(330px,calc(100vw - 24px))}
 /* The character rides along in the stage too: its own row above the clock, so
@@ -641,3 +641,59 @@ body.stage-open .musicWidget{z-index:45}
   .pomoScene .sceneSprite,.sceneWalk,.sceneWalk .sceneWalker,.sceneShadow{animation:none}
   .sceneBubble{animation:none;opacity:1}
 }
+/* ---- Laptop heights, phone Pomodoro row, floating stage card ------------- */
+
+/* On a 1536x864 laptop the dashboard came to 951px, so Weekly progress sat
+   below the fold. Trim the room row and the panels that set the second row's
+   height when the viewport is short. */
+@media(min-width:1101px) and (max-height:900px){
+  .pixelDashboard{grid-template-rows:minmax(376px,auto) auto!important}
+  .pixelDashboard .sideCol{grid-template-rows:minmax(300px,auto) minmax(186px,auto) minmax(126px,auto)!important}
+  .pixelDashboard .sideCol>.growthCard{min-height:296px;padding:16px}
+  .pixelDashboard .growthSummary{min-height:200px}
+  .pixelDashboard .growthSummary>.plan{min-height:240px;padding:14px 16px}
+  .pixelDashboard .growthSummary .plan .task{min-height:44px;padding:5px 0}
+  .pixelDashboard .growthSummary>.weekly{padding:14px 16px}
+  .pixelDashboard .weekRow{margin:2px 0}
+  .pixelDashboard .timerBody.withScene{grid-template-columns:minmax(92px,120px) auto minmax(118px,auto)}
+  .pixelDashboard .growthCard .growthStage{min-height:0}
+}
+
+/* Phone/tablet Pomodoro: keep the desktop shape -- character, tomato and clock
+   on one row -- rather than stacking the character above, which left a tall
+   band of empty card. Spacer columns centre the trio; the buttons still span. */
+@media(max-width:1100px){
+  .pixelDashboard .timerBody.withScene{grid-template-columns:minmax(0,1fr) auto auto auto minmax(0,1fr);
+    grid-template-rows:minmax(70px,auto) 44px;column-gap:0;row-gap:12px;align-items:center}
+  .pixelDashboard .timerBody.withScene>.pomoScene{grid-column:2;grid-row:1;margin:0 10px 0 0;
+    width:clamp(76px,20vw,128px);aspect-ratio:1;justify-self:center}
+  /* The full size ring sat right on top of Start/Reset on a phone. */
+  .pixelDashboard .timerBody.withScene>.tomatoRing{grid-column:3;grid-row:1;margin-right:14px;
+    width:clamp(56px,16vw,68px);height:clamp(56px,16vw,68px)}
+  .pixelDashboard .timerBody.withScene>.tomatoRing:before{inset:7px}
+  .pixelDashboard .timerBody.withScene>.tomatoRing img{width:70%;height:70%}
+  .pixelDashboard .timerBody.withScene>.timerReadout{grid-column:4;grid-row:1}
+  .pixelDashboard .timerBody.withScene>.timerActions{grid-column:1/-1;grid-row:2}
+}
+/* Too narrow for three across: the character steps up onto its own row. */
+@media(max-width:360px){
+  .pixelDashboard .timerBody.withScene{grid-template-rows:auto minmax(74px,auto) 44px}
+  .pixelDashboard .timerBody.withScene>.pomoScene{grid-column:1/-1;grid-row:1;margin:0 0 -10px;
+    width:clamp(96px,30vw,124px)}
+  .pixelDashboard .timerBody.withScene>.tomatoRing{grid-column:2;grid-row:2}
+  .pixelDashboard .timerBody.withScene>.timerReadout{grid-column:3;grid-row:2}
+  .pixelDashboard .timerBody.withScene>.timerActions{grid-row:3}
+}
+
+/* The stage card floats and is draggable even before a video is picked, so it
+   no longer sits in the flow pushing the picker down. Keep the picker clear of
+   where it starts. */
+@media(min-width:1180px){.focusStage .focusLibrary{margin-right:376px}}
+/* Still room beside it: narrow the picker and pin it left instead of stacking. */
+@media(min-width:900px) and (max-width:1179px){
+  .focusStage .focusLibrary{width:min(680px,calc(100% - 372px));margin:0 auto 0 24px}
+}
+/* Too narrow to sit side by side, so the picker starts below where the card
+   lands; it can be dragged out of the way from there. */
+@media(max-width:899px){.focusStage .focusLibrary{padding-top:392px}}
+@media(max-width:620px){.focusStage .focusLibrary{padding-top:332px}}

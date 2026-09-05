@@ -123,9 +123,8 @@ export function FocusStage({onClose,timer,setTimer,running,setRunning,phase,setP
 
   {/* The very same Pomodoro card as the dashboard, tomato ring and all; it
       just rides along in the corner once a video is playing. */}
-  <div ref={timerBox} className={`focusTimer${playing?' floating':''}`}
-    style={playing?timerDrag.style:undefined}>
-   {playing&&<div className="focusTimerGrip" {...timerDrag.dragProps} title="ลากเพื่อย้ายตำแหน่ง">⠿ ลากได้</div>}
+  <div ref={timerBox} className="focusTimer floating" style={timerDrag.style}>
+   <div className="focusTimerGrip" {...timerDrag.dragProps} title="ลากเพื่อย้ายตำแหน่ง">⠿ ลากได้</div>
    <PomodoroCard {...{timer,setTimer,running,setRunning,phase,setPhase,sessions}}/>
   </div>
 
