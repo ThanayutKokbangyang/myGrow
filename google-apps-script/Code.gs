@@ -162,8 +162,20 @@ function flashcards_(body) {
 function cardImage_(image){
   if(!image||!/^image\/(jpeg|png|webp)$/.test(image.mimeType)||typeof image.data!=='string'||image.data.length>2800000)throw new Error('รูปภาพไม่ถูกต้องหรือใหญ่เกิน 2 MB');
   const bytes=Utilities.base64Decode(image.data);if(bytes.length>2*1024*1024)throw new Error('รูปภาพใหญ่เกิน 2 MB');
-  const folders=DriveApp.getFoldersByName('myGrow Vocabulary Images');const folder=folders.hasNext()?folders.next():DriveApp.createFolder('myGrow Vocabulary Images');
-  const file=folder.createFile(Utilities.newBlob(bytes,image.mimeType,'vocabulary-'+Utilities.getUuid()+'.jpg'));
-  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK,DriveApp.Permission.VIEW);
-  return {ok:true,imageFileId:file.getId(),imageUrl:'https://drive.google.com/thumbnail?id='+file.getId()+'&sz=w1000'};
+  try {
+    const folders=DriveApp.getFoldersByName('myGrow Vocabulary Images');const folder=folders.hasNext()?folders.next():DriveApp.createFolder('myGrow Vocabulary Images');
+    const file=folder.createFile(Utilities.newBlob(bytes,image.mimeType,'vocabulary-'+Utilities.getUuid()+'.jpg'));
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK,DriveApp.Permission.VIEW);
+    return {ok:true,imageFileId:file.getId(),imageUrl:'https://drive.google.com/thumbnail?id='+file.getId()+'&sz=w1000'};
+  } catch(error) {
+    if(/permission|scope|authoriz/i.test(String(error)))throw new Error('ยังไม่ได้อนุญาต Google Drive: เปิด Apps Script แล้วรัน authorizeDrive หนึ่งครั้ง จากนั้น Deploy เวอร์ชันใหม่');
+    throw error;
+  }
+}
+
+// Run this once from the Apps Script editor after adding image upload.
+// Google will show the consent screen for the Drive permission.
+function authorizeDrive() {
+  const root = DriveApp.getRootFolder();
+  return 'Drive access granted: ' + root.getName();
 }

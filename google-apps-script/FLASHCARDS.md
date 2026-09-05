@@ -6,10 +6,11 @@ The new Flashcards page uses the existing spreadsheet, existing owner verificati
 
 1. In the existing Google spreadsheet, open Extensions → Apps Script.
 2. Replace the existing `Code.gs` with the full `google-apps-script/Code.gs` from this commit and save. Preserve the existing script properties, including `GROW_ROOM_SECRET`.
-3. Deploy → Manage deployments → pencil → Version: New version → Deploy. Update the existing deployment to keep the same Web App URL.
-4. Open Flashcards in myGrow and select โหลดใหม่. Vocabulary loads automatically on subsequent visits. Use the same owner code when prompted to add, edit, delete, import or review words.
+3. At the top of the Apps Script editor, select the `authorizeDrive` function and click Run. Select Review permissions, choose the Google account that owns the sheet, and click Allow. The execution log should finish without an error.
+4. Deploy → Manage deployments → pencil → Version: New version → Deploy. Set Execute as to Me and update the existing deployment to keep the same Web App URL.
+5. Open Flashcards in myGrow and select โหลดใหม่. Vocabulary loads automatically on subsequent visits. Use the same owner code when prompted to add, edit, delete, import or review words.
 
-The optional image-upload feature uses Google Drive, like the reference app. Grant the script's requested Drive access when deploying if prompted. Uploaded images go into `myGrow Vocabulary Images` and are readable by anyone with their link so they can appear in the cards. You may use an HTTPS image URL instead of uploading.
+The optional image-upload feature uses Google Drive, like the reference app. Running `authorizeDrive` once is required after adding this feature because an existing web-app deployment may not open the new consent screen automatically. Uploaded images go into `myGrow Vocabulary Images` and are readable by anyone with their link so they can appear in the cards. You may use an HTTPS image URL instead of uploading.
 
 ## Data
 
