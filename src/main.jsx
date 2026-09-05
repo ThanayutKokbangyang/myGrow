@@ -438,7 +438,7 @@ function App() {
           ["today", "/ui/nav-home.png", "วันนี้"],
           ["history", "/ui/nav-history.png", "ประวัติ"],
           ["progress", "/ui/nav-progress.png", "พัฒนาการ"],
-          ["wins", "/ui/pixel/check.png", "ความสำเร็จเล็ก ๆ"],
+          ["wins", "/ui/pixel/trophy.svg", "ความสำเร็จเล็ก ๆ"],
         ].map(([k, asset, l]) => (
           <button
             className={view === k ? "active" : ""}
