@@ -1,5 +1,6 @@
 import React,{useEffect,useRef,useState} from 'react';
 import './wins.css';
+import {WinCelebration} from './win-celebration';
 import {useSheetWins} from './use-sheet-wins';
 import {WIN_CATEGORIES,dayKey,parseDay,categoryOf,normalizeWins,calendarDays,makeWin} from './wins-model';
 const STORAGE='grow-small-wins-v1';
@@ -11,6 +12,7 @@ export function SmallWins({onSuccess,onRequireOwner}){
  const [today,setToday]=useState(dayKey),[selected,setSelected]=useState(dayKey),[month,setMonth]=useState(()=>parseDay(dayKey()));
  const [text,setText]=useState(''),[category,setCategory]=useState('learning'),[filter,setFilter]=useState('all');
  const [editing,setEditing]=useState(null),[removing,setRemoving]=useState(null);
+ const [celebration,setCelebration]=useState(0);
  const textRef=useRef(null);
  useEffect(()=>{const refresh=()=>setToday(dayKey());const timer=setInterval(refresh,30000);window.addEventListener('focus',refresh);return()=>{clearInterval(timer);window.removeEventListener('focus',refresh)}},[]);
  function selectDay(key){setSelected(key);setRemoving(null);}
@@ -18,12 +20,13 @@ export function SmallWins({onSuccess,onRequireOwner}){
  async function save(e){e.preventDefault();if(!text.trim())return;const original=editing?wins.find(w=>w.id===editing):null;if(editing&&!original){setMessage('ไม่พบรายการเดิม');return;}
   const item=makeWin({id:editing||crypto.randomUUID(),text,category,original});
   const next=editing?wins.map(w=>w.id===editing?item:w):[item,...wins];
-  if(await persist(next)){setText('');setEditing(null);setToday(dayKey());selectDay(item.date);setMonth(parseDay(item.date));setFilter('all');setMessage('บันทึกใน Google Sheets แล้ว เก่งมาก!');onSuccess();}
+  if(await persist(next)){setText('');setEditing(null);setToday(dayKey());selectDay(item.date);setMonth(parseDay(item.date));setFilter('all');setMessage('บันทึกใน Google Sheets แล้ว เก่งมาก!');setCelebration(n=>n+1);onSuccess?.();}
  }
  const byDate=new Map();for(const win of wins){if(!byDate.has(win.date))byDate.set(win.date,[]);byDate.get(win.date).push(win);}
  const selectedWins=byDate.get(selected)||[],shown=selectedWins.filter(w=>filter==='all'||w.category===filter);
  const activeCategory=categoryOf(category),original=editing?wins.find(w=>w.id===editing):null;
  return <section className="page smallWins pixelWins">
+  {celebration>0&&<WinCelebration key={celebration} onClose={()=>setCelebration(0)}/>}
   <header className="winsHero"><div className="trophyPedestal"><Trophy/></div><div><p className="eyebrow">DAILY ACHIEVEMENTS</p><h1>ความสำเร็จเล็ก ๆ</h1><p>ก้าวเล็กของวันนี้ ก็สมควรได้รับถ้วยรางวัล</p></div><div className="winsTotal"><Trophy/><b>{wins.length}</b><span>ความสำเร็จทั้งหมด</span></div></header>
   <div className="winSheetStatus"><span>{ready?'☁ Google Sheets':'กำลังรอการเชื่อมต่อ'}</span>{pending>0&&<button disabled={busy||!ready} onClick={()=>persist(wins)}>ย้าย {pending} รายการเดิมเข้า Sheet</button>}<button disabled={busy} onClick={refresh}>โหลดใหม่</button></div>
   <fieldset className="winSheetFields" disabled={busy}><div className="pixelWinsLayout">

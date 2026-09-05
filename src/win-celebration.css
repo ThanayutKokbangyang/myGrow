@@ -1,0 +1,19 @@
+.winVictory{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:16px;pointer-events:none}
+.winVictoryCard{position:relative;pointer-events:auto;width:min(400px,100%);max-height:calc(100dvh - 32px);overflow:auto;box-sizing:border-box;padding:24px;text-align:center;color:#20344f;background:#fff3cf;border:4px solid #25364b;box-shadow:6px 6px 0 #917f59,0 12px 60px #101e4266;font-family:inherit}
+.winVictoryClose{position:absolute;right:8px;top:8px;z-index:2;width:36px;height:36px;padding:0;font-family:inherit;font-size:26px;line-height:1;color:#25364b;background:#f5e2ad;border:2px solid #25364b;cursor:pointer}
+.winVictoryStage{position:relative;height:228px;overflow:hidden;background:linear-gradient(#213553,#345873);border:2px solid #25364b;margin:20px 0}
+.winVictoryHero{position:absolute;left:50%;bottom:17px;width:94.2px;height:140.4px;margin-left:-47.1px;animation:winVictoryHop .72s steps(6,end) 5}
+.winVictorySprite{display:block;width:94.2px;height:140.4px;background:url('/growth/tae-jump-atlas.png') -141.3px -211.2px / 376.2px 376.2px no-repeat;image-rendering:pixelated}
+.winVictoryCup{position:absolute;width:60px;height:60px;left:17px;top:-39px;image-rendering:pixelated;filter:drop-shadow(0 0 8px #ffdc6277)}
+.winVictoryGround{position:absolute;bottom:0;left:0;right:0;height:12px;background:#809f69;border-top:4px solid #c5d582}
+.winVictoryShadow{position:absolute;bottom:14px;left:calc(50% - 42px);width:84px;height:8px;background:#152b42}
+.winVictoryBurst{position:absolute;left:22%;top:35%}.winVictoryBurst.burst1{left:79%;top:28%}.winVictoryBurst.burst2{left:72%;top:62%}.winVictoryBurst.burst3{left:18%;top:66%}
+.winVictoryBurst i{position:absolute;width:5px;height:5px;background:var(--spark);opacity:0;animation:winVictorySpark 1.45s steps(8,end) var(--delay) 3}
+.winVictoryLabel{font-size:12px!important;letter-spacing:2px;font-weight:800;color:#417b76}
+.winVictoryCard h2{font-size:24px;line-height:1.5;margin:8px 0}.winVictoryCard p{font-size:17px;line-height:1.65;margin:8px 0}
+.winVictoryContinue{margin-top:12px;padding:10px 24px;font:inherit;font-weight:700;font-size:18px;color:#fff8de;background:#378d84;border:3px solid #25364b;box-shadow:3px 3px 0 #25364b;cursor:pointer}
+.winVictoryCard button:focus-visible{outline:3px solid #e6a322;outline-offset:3px}
+@keyframes winVictoryHop{0%,100%{transform:translateY(0)}40%,55%{transform:translateY(-15px)}}
+@keyframes winVictorySpark{0%{opacity:0;transform:translate(0,0) scale(.5)}15%{opacity:1}70%{opacity:1}100%{opacity:0;transform:translate(var(--dx),var(--dy))}}
+@media(prefers-reduced-motion:reduce){.winVictoryHero,.winVictoryBurst i{animation:none}.winVictoryBurst i{opacity:.65;transform:translate(var(--dx),var(--dy))}}
+@media(max-height:560px){.winVictoryStage{height:185px;margin:8px 0}.winVictoryCard{padding:14px}.winVictoryCard h2{font-size:21px}.winVictoryCard p{margin:4px 0}}

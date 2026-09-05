@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import "./styles.css";
 import Flashcards from "./flashcards";
 import {contains,roomGeometry} from "./room-geometry";
-import {MusicPlayer, SmallWins, unlockSound, woodStep, winSound} from "./comfort";
+import {MusicPlayer, SmallWins, unlockSound, woodStep, winSound, smallWinSound} from "./comfort";
 import {FocusStage} from "./focus-stage";
 import {PixelIcon, PomodoroCard} from "./pomodoro-card";
 import {
@@ -124,6 +124,9 @@ function App() {
   const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem("grow-sound") !== "off");
   const soundRef = useRef(soundEnabled);
   soundRef.current = soundEnabled;
+  const victoryStop = useRef(null);
+  useEffect(()=>{if(!soundEnabled)victoryStop.current?.();return ()=>victoryStop.current?.();},[soundEnabled]);
+  const celebrateSmallWin = () => { victoryStop.current?.(); if(soundRef.current) victoryStop.current=smallWinSound(); };
   const celebrateSound = () => { if(soundRef.current) winSound(); };
   const [logs, setLogs] = useState(() =>
     JSON.parse(
@@ -477,7 +480,7 @@ function App() {
         ) : view === "flashcards" ? (
           <Flashcards onRequireOwner={()=>setVerify({type:"flashcards"})} onSuccess={celebrateSound} ownerOpen={Boolean(verify)} />
         ) : view === "wins" ? (
-          <SmallWins onSuccess={celebrateSound} onRequireOwner={()=>setVerify({type:"wins"})} />
+          <SmallWins onSuccess={celebrateSmallWin} onRequireOwner={()=>setVerify({type:"wins"})} />
         ) : view === "history" ? (
           <HistoryView logs={logs} remove={remove} />
         ) : (

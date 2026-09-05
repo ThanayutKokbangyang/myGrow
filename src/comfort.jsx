@@ -3,9 +3,16 @@ export const localDay = () => { const d=new Date(); return `${d.getFullYear()}-$
 const read=(key,fallback)=>{try{return JSON.parse(localStorage.getItem(key))??fallback}catch{return fallback}};
 let audio;
 export function unlockSound(){try{audio??=new (window.AudioContext||window.webkitAudioContext)();if(audio.state==='suspended')audio.resume().catch(()=>{});}catch{}}
-function tone(freq,start,duration,type,volume){if(!audio||audio.state!=='running')return;const osc=audio.createOscillator(),gain=audio.createGain();osc.type=type;osc.frequency.setValueAtTime(freq,start);gain.gain.setValueAtTime(.0001,start);gain.gain.exponentialRampToValueAtTime(volume,start+.005);gain.gain.exponentialRampToValueAtTime(.0001,start+duration);osc.connect(gain);gain.connect(audio.destination);osc.start(start);osc.stop(start+duration+.01);osc.onended=()=>{osc.disconnect();gain.disconnect()};}
+function tone(freq,start,duration,type,volume){if(!audio||audio.state!=='running')return;const osc=audio.createOscillator(),gain=audio.createGain();osc.type=type;osc.frequency.setValueAtTime(freq,start);gain.gain.setValueAtTime(.0001,start);gain.gain.exponentialRampToValueAtTime(volume,start+.005);gain.gain.exponentialRampToValueAtTime(.0001,start+duration);osc.connect(gain);gain.connect(audio.destination);osc.start(start);osc.stop(start+duration+.01);osc.onended=()=>{osc.disconnect();gain.disconnect()};return ()=>{try{gain.gain.cancelScheduledValues(audio.currentTime);gain.gain.setValueAtTime(.0001,audio.currentTime);osc.stop();}catch{}};}
 export function woodStep(){if(!audio||audio.state!=='running')return;const t=audio.currentTime; tone(150+Math.random()*35,t,.08,'triangle',.09);tone(480+Math.random()*70,t,.035,'sine',.035);const buffer=audio.createBuffer(1,Math.ceil(audio.sampleRate*.035),audio.sampleRate),data=buffer.getChannelData(0);for(let i=0;i<data.length;i++)data[i]=(Math.random()*2-1)*Math.exp(-i/(data.length*.16));const source=audio.createBufferSource(),filter=audio.createBiquadFilter(),gain=audio.createGain();source.buffer=buffer;filter.type='bandpass';filter.frequency.value=1100;gain.gain.value=.12;source.connect(filter);filter.connect(gain);gain.connect(audio.destination);source.start();source.onended=()=>{source.disconnect();filter.disconnect();gain.disconnect()};}
 export function winSound(){if(!audio||audio.state!=='running')return;[523.25,659.25,783.99,1046.5,1318.5].forEach((f,i)=>tone(f,audio.currentTime+i*.105,i===4?.4:.14,'square',.055));}
+export function smallWinSound(){
+ if(!audio||audio.state!=='running')return ()=>{};
+ const start=audio.currentTime+.02,stops=[];
+ [523.25,659.25,783.99,1046.5,0,783.99,1046.5,1174.66,1318.51,0,1174.66,1046.5,1318.51,1567.98,1046.5].forEach((note,i)=>{if(note)stops.push(tone(note,start+i*.17,i===14?.7:.15,'square',.035))});
+ [261.63,329.63,392,261.63].forEach((note,i)=>stops.push(tone(note,start+i*.68,.55,'triangle',.045)));
+ return ()=>stops.forEach(stop=>stop?.());
+}
 export function youtubeId(value){try{const u=new URL(value);if(!['https:','http:'].includes(u.protocol))return null;const host=u.hostname.toLowerCase();let id;if(host==='youtu.be')id=u.pathname.split('/')[1];else if(['youtube.com','www.youtube.com','m.youtube.com','music.youtube.com'].includes(host))id=u.pathname==='/watch'?u.searchParams.get('v'):['embed','shorts','live'].includes(u.pathname.split('/')[1])?u.pathname.split('/')[2]:null;return /^[\w-]{11}$/.test(id||'')?id:null;}catch{return null}}
 const MUSIC_POS='grow-music-pos';
 // Drag-anywhere behaviour for the floating player. Position is kept as the
