@@ -72,6 +72,9 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
   const lock = useRef(false),
     mounted = useRef(true),
     loadRun = useRef(0);
+  // เก็บ local URLs ที่ต้อง revoke
+  const localUrls = useRef(new Set());
+  
   function accept(next) {
     const normalized = next.map(normalizeCard);
     remember(normalized);
@@ -114,6 +117,9 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
       loadRun.current++;
       clearInterval(timer);
       window.speechSynthesis?.cancel();
+      // revoke local URLs ที่ค้างอยู่
+      localUrls.current.forEach(url => URL.revokeObjectURL(url));
+      localUrls.current.clear();
     };
   }, []);
   async function mutate(action, payload) {
@@ -297,12 +303,25 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
       imageFileId: c.imageFileId || "",
     });
   }
-  async function saveCard(card, image) {
+  async function saveCard(card, image, file) {
     let data = { ...card };
 
     // 📝 อัปเดต UI ทันที (optimistic)
     const tempId = card.id || crypto.randomUUID();
-    const tempCard = normalizeCard({ ...data, id: tempId });
+    
+    // 🔥 ถ้ามี file ให้สร้าง local URL โชว์ก่อนเลย
+    let tempImageUrl = null;
+    if (file) {
+      tempImageUrl = URL.createObjectURL(file);
+      localUrls.current.add(tempImageUrl); // เก็บไว้ revoke ทีหลัง
+    }
+    
+    const tempCard = normalizeCard({ 
+      ...data, 
+      id: tempId,
+      imageUrl: tempImageUrl || data.imageUrl || "",
+      imageFileId: data.imageFileId || "",
+    });
 
     // ถ้าเป็นคำใหม่ → เพิ่มเข้าไปเลย
     if (!card.id) {
@@ -316,17 +335,29 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
 
     try {
       // อัปโหลดรูป (ถ้ามี)
+      let uploaded = null;
       if (image) {
-        const uploaded = await mutate("uploadImage", { image });
-        if (!uploaded) return false;
+        uploaded = await mutate("uploadImage", { image });
+        if (!uploaded) {
+          // ถ้าอัปโหลดไม่สำเร็จ เอาออก
+          accept(cards);
+          setNotice("อัปโหลดรูปไม่สำเร็จ");
+          return false;
+        }
         data = {
           ...data,
           imageUrl: uploaded.imageUrl,
           imageFileId: uploaded.imageFileId,
         };
-        // อัปเดต UI ด้วยรูปที่อัปโหลดแล้ว
+        // อัปเดต UI ด้วย URL จริงจาก server
         const updatedCard = normalizeCard({ ...data, id: tempId });
         accept(cards.map((c) => (c.id === tempId ? updatedCard : c)));
+        
+        // ลบ local URL ที่สร้างไว้
+        if (tempImageUrl) {
+          URL.revokeObjectURL(tempImageUrl);
+          localUrls.current.delete(tempImageUrl);
+        }
       }
 
       // บันทึกไป Sheet
@@ -346,6 +377,10 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
     } catch (error) {
       // ถ้า error คืนค่ากลับ
       accept(cards);
+      if (tempImageUrl) {
+        URL.revokeObjectURL(tempImageUrl);
+        localUrls.current.delete(tempImageUrl);
+      }
       setNotice("บันทึกไม่สำเร็จ: " + error.message);
       return false;
     }
@@ -797,10 +832,10 @@ async function prepareImage(file) {
     const ctx = canvas.getContext("2d");
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-    // กลับไปใช้ JPEG เหมือนเดิม
     return {
       data: canvas.toDataURL("image/jpeg", 0.7).split(",")[1],
       mimeType: "image/jpeg",
+      file: file, // 🔥 ส่ง file object กลับไปด้วย
     };
   } finally {
     URL.revokeObjectURL(url);
@@ -894,8 +929,9 @@ function CardEditor({ initial, tags = [], onClose, onSave, busy }) {
           setSaving(true);
           setError("");
           try {
-            const image = file ? await prepareImage(file) : null;
-            await onSave(draft, image);
+            const result = file ? await prepareImage(file) : null;
+            const image = result ? { data: result.data, mimeType: result.mimeType } : null;
+            await onSave(draft, image, file); // ส่ง file ไปด้วย
           } catch (err) {
             setError(err.message);
           } finally {
@@ -905,14 +941,14 @@ function CardEditor({ initial, tags = [], onClose, onSave, busy }) {
       >
         <header>
           <h2 id="fc-editor-title">บันทึกคำศัพท์</h2>
-          <button
+         <button
             type="button"
             aria-label="ปิด"
             disabled={disabled}
             onClick={onClose}
-          >
-            ×
-          </button>
+            >
+            <Icon name="close" />
+            </button>
         </header>
         <fieldset disabled={disabled}>
           {[
