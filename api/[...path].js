@@ -108,6 +108,13 @@ export default async function handler(request) {
     try{return json(await sheetRequest({action:'cards_'+action,card:body?.card,cards:body?.cards,id:body?.id,remembered:body?.remembered,reviewId:body?.reviewId,image:body?.image}));}
     catch(error){return json({error:error.message==='ACTION_INVALID'?'กรุณาอัปเดต Apps Script ให้รองรับ Vocabulary ก่อน':error.message},503);}
   }
+  if (url.pathname === '/api/goals' && ['GET','POST'].includes(request.method)) {
+    if (request.method === 'POST' && !(await validToken(request))) return json({error:'กรุณายืนยันว่าเป็นเท่ก่อนบันทึก'},401);
+    const body=request.method==='POST'?await request.json().catch(()=>null):null;
+    if(request.method==='POST' && (!Array.isArray(body?.changes)||!body.changes.length||body.changes.length>500))return json({error:'ข้อมูลไม่ถูกต้อง'},400);
+    try { return json(await sheetRequest({action:request.method==='GET'?'goals_list':'goals_apply',changes:body?.changes})); }
+    catch(error){return json({error:error.message==='ACTION_INVALID'?'กรุณาอัปเดตและ Deploy Apps Script เวอร์ชัน Goals ก่อน':error.message},503);}
+  }
   if (url.pathname === '/api/wins' && ['GET','POST'].includes(request.method)) {
     if (request.method === 'POST' && !(await validToken(request))) return json({error:'กรุณายืนยันว่าเป็นเท่ก่อนบันทึก'},401);
     const body=request.method==='POST'?await request.json().catch(()=>null):null;

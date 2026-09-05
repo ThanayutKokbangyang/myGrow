@@ -1,0 +1,201 @@
+/* Goals & plans -- same pixel paper as Flashcards: cream board, navy frames,
+   hard shadows, no rounded corners. */
+.goalsPage{
+ --ink:#20364b;--paper:#fff3d2;--edge:#253b52;--soft:#c9b58b;--muted:#887043;
+ max-width:1180px;margin:0 auto 30px;padding:26px;color:var(--ink);
+ background:#f2e6c4;border:4px solid var(--edge);
+ box-shadow:inset 3px 3px #fff9e8,5px 5px #06132355;
+ font:16px/1.6 'Noto Sans Thai',sans-serif;min-width:0;
+}
+.goalsPage *{box-sizing:border-box}
+.goalsPage button,.goalsPage input,.goalsPage select,.goalsPage textarea{font:inherit}
+.goalsPage button{
+ border:2px solid var(--ink);border-radius:0;background:#f8e6b7;color:var(--ink);
+ box-shadow:inset 2px 2px #fff8e7,3px 3px #aa8b54;padding:8px 13px;cursor:pointer;
+ display:inline-flex;align-items:center;justify-content:center;gap:7px;font-size:15px;min-height:42px;
+}
+.goalsPage button:hover{filter:brightness(1.05)}
+.goalsPage button:active{transform:translate(2px,2px);box-shadow:inset 1px 1px #bca67f}
+.goalsPage button:disabled{opacity:.5;cursor:default}
+.goalsPage :focus-visible{outline:3px solid #d29b32;outline-offset:3px}
+.goalsPage .goalPrimary{background:#337f72;color:#fff7df;box-shadow:inset 2px 2px #75b4a4,3px 3px #1c413e;font-weight:700}
+.goalsPage .goalDanger{background:#b8402f;color:#fff2e2;box-shadow:inset 2px 2px #e2836f,3px 3px #571711}
+.goalEyebrow{margin:0;color:var(--muted);font:bold 12px 'Courier New',monospace;letter-spacing:1.6px}
+
+/* ---- hero ------------------------------------------------------------- */
+.goalsHero{display:flex;gap:18px;align-items:center;padding-bottom:20px;border-bottom:3px solid var(--soft)}
+.goalsEmblem{padding:10px;background:#e3b456;border:3px solid #26364b;box-shadow:inset 3px 3px #ffe8a8,4px 4px #947031}
+.goalsEmblem img{display:block;width:58px;height:58px;object-fit:contain;image-rendering:pixelated}
+.goalsHero h1{font-size:29px;line-height:1.3;margin:6px 0 4px}
+.goalsLead{margin:0;font-size:15px;color:#887450}
+.goalsAdd{margin-left:auto;white-space:nowrap}
+
+/* ---- stats ------------------------------------------------------------ */
+.goalsStats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:20px 0 16px}
+.goalsStats>div{background:#f3dfb4;border:2px solid #445264;padding:13px 15px}
+.goalsStats span{display:block;font-size:13px;color:#7d6a44}
+.goalsStats strong{display:block;font:900 27px 'Courier New',monospace;color:#327466;margin-top:5px}
+
+/* ---- filter bar ------------------------------------------------------- */
+.goalsBar{display:flex;gap:14px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-bottom:18px}
+.goalTabs{display:flex;gap:8px;flex-wrap:wrap}
+.goalTabs button[aria-selected=true]{background:#253e53;color:#fff1c1;box-shadow:inset 2px 2px #5b7484,3px 3px #10283a}
+.goalsConn{display:flex;gap:10px;align-items:center;font-size:13px;color:#966c38}
+.goalsConn .connected{color:#397763}
+.goalsConn button{font-size:13px;padding:4px 10px;min-height:34px}
+
+/* ---- goal cards ------------------------------------------------------- */
+.goalGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(430px,1fr));gap:18px;align-items:start}
+.goalCard{background:var(--paper);border:3px solid #263c4d;box-shadow:inset 3px 3px #fffbee,4px 4px #b09a74;padding:18px}
+.goalCard[data-status=done]{background:#e8f2e5}
+.goalCard[data-status=paused]{background:#f1ebdc}
+.goalTop{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:14px;align-items:start}
+.goalArt{flex:none;padding:6px;background:#f7e5bd;border:2px solid #cfae6d;box-shadow:inset 2px 2px #fffaea}
+.goalArt img{display:block;width:74px;height:74px;object-fit:contain;image-rendering:pixelated}
+.goalHead{min-width:0}
+.goalTags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.goalCard h3{font-size:20px;margin:0 0 4px;line-height:1.4;overflow-wrap:anywhere}
+.goalWhy{margin:0;font-size:14px;color:#7d6b4c;overflow-wrap:anywhere}
+.goalTools{display:flex;flex-direction:column;gap:6px}
+.goalTools button{font-size:13px;padding:5px 10px;min-height:32px}
+.goalTerm{font:bold 12px 'Courier New',monospace;padding:4px 9px;border:2px solid #bdab7f;background:#f4e6bf;color:#68583b}
+.goalTerm.long{background:#dfe7f5;border-color:#8fa4c6;color:#33507f}
+.goalTerm.short{background:#f7e3d4;border-color:#d0a184;color:#8a4c2c}
+.goalChip{font:bold 12px 'Courier New',monospace;padding:4px 9px;border:2px solid #bdab7f;background:#faf1d9;color:#6d5c3d;white-space:nowrap}
+.goalChip.soon{background:#fdedc6;border-color:#d8a83c;color:#8a6410}
+.goalChip.late{background:#ffdfd6;border-color:#c9705a;color:#93301c}
+.goalChip.ok{background:#dcefd9;border-color:#84b07c;color:#3a6a33}
+.goalChip.status-active{background:#d9ecea;border-color:#6ca8a0;color:#25635a}
+.goalChip.status-paused{background:#eee7d5;border-color:#b6a680;color:#6f6142}
+.goalChip.status-done{background:#dcefd9;border-color:#84b07c;color:#3a6a33}
+
+.goalProgress{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:10px;margin:14px 0 4px}
+.goalBar{height:16px;border:2px solid #334657;background:#ddcfab;box-shadow:inset 2px 2px #c3b189}
+.goalBar i{display:block;height:100%;background:#439182;transition:width .25s steps(8,end)}
+.goalProgress b{font-size:13px;color:#6f5d3c}
+.goalProgress span{font:900 15px 'Courier New',monospace;color:#327466;min-width:44px;text-align:right}
+.goalConfirm{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0 0;padding:9px 12px;
+ background:#ffe6dc;border-left:4px solid #b8402f;font-size:14px}
+.goalConfirm button{font-size:13px;padding:5px 10px;min-height:32px}
+
+/* ---- plan steps ------------------------------------------------------- */
+.planList{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:7px}
+.planList li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:stretch}
+/* Beats the .goalsPage button inline-flex rule, which would keep this flex. */
+.goalsPage .planCheck{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;width:100%;gap:10px;
+ text-align:left;background:#fff9e9;border:2px solid #485669;box-shadow:2px 2px #c8b58c;padding:8px 10px;min-height:48px}
+.planBox{flex:none;width:22px;height:22px;display:grid;place-items:center;border:2px solid #3b4b5e;
+ background:#fffdf3;box-shadow:inset 2px 2px #ded3b6;font:900 14px 'Courier New',monospace;color:#2c7a5f}
+.planCheck img{flex:none;width:30px;height:30px;object-fit:contain;image-rendering:pixelated}
+.planTitle{min-width:0;font-size:15px;overflow-wrap:break-word}
+.planList li.done .planCheck{background:#e3efdd;border-color:#6f8d6a}
+.planList li.done .planTitle{text-decoration:line-through;color:#7c8a76}
+.planList li.done .planBox{background:#3f8a63;color:#fff8e2;border-color:#2b6045;box-shadow:inset 2px 2px #79bb96}
+.planDelete{padding:0 11px;min-height:0;font-size:13px;background:#f0ded9;box-shadow:inset 2px 2px #fff3ec,2px 2px #b58d80}
+
+.planAdd{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:8px;margin-top:12px;
+ padding-top:12px;border-top:2px dashed #cdb98d}
+.planIconPick{padding:4px;min-height:44px}
+.planIconPick img{width:30px;height:30px;object-fit:contain;image-rendering:pixelated}
+.goalsPage .planAdd input{padding:9px 11px;border:2px solid #4c5b64;border-radius:0;
+ box-shadow:inset 2px 2px #d8cfb9;background:#fffdf3;color:#253a4a;font-size:16px;min-width:0}
+.goalsPage .planAdd .planDue{width:150px}
+
+/* ---- empty & status --------------------------------------------------- */
+.goalsEmpty{text-align:center;padding:46px 20px;border:2px dashed #bead84;background:#f8f0d8}
+.goalsEmpty img{width:96px;height:96px;object-fit:contain;image-rendering:pixelated}
+.goalsEmpty h2{font-size:21px;margin:12px 0 6px}
+.goalsEmpty p{margin:0;font-size:15px;color:#897654}
+.goalMessage{margin:18px 0 0;font-size:14px;color:#8a6f42;min-height:20px}
+
+/* ---- modals ----------------------------------------------------------- */
+.goalBackdrop{position:fixed;inset:0;background:#071627c9;display:grid;place-items:center;z-index:20;padding:20px;overflow-y:auto}
+.goalModal{width:min(620px,100%);max-height:90dvh;overflow-y:auto;background:#fff3d2;border:4px solid #263c50;
+ box-shadow:6px 6px #0c172d;padding:22px}
+.goalModal header{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:16px}
+.goalModal h2{font-size:22px;margin:0}
+.goalModal header button{min-height:36px;padding:4px 12px}
+.goalFormBody{display:grid;grid-template-columns:auto minmax(0,1fr);gap:16px;align-items:start}
+.goalArtPick{flex-direction:column;gap:6px;padding:10px;background:#f7e5bd;box-shadow:inset 2px 2px #fffaea,3px 3px #aa8b54}
+.goalArtPick img{width:82px;height:82px;object-fit:contain;image-rendering:pixelated}
+.goalArtPick span{font-size:12px;font-weight:700}
+.goalFields{display:grid;gap:12px;min-width:0}
+.goalsPage label,.goalModal label{display:flex;flex-direction:column;gap:5px;font-size:14px;font-weight:700;min-width:0}
+.goalModal input,.goalModal select,.goalModal textarea{
+ padding:9px 11px;border:2px solid #4c5b64;border-radius:0;box-shadow:inset 2px 2px #d8cfb9;
+ background:#fffdf3;color:#253a4a;font-size:16px;width:100%;min-width:0;font-weight:400}
+.goalModal textarea{resize:vertical}
+.goalModal select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,#4c5b64 50%),linear-gradient(135deg,#4c5b64 50%,transparent 50%);
+ background-position:calc(100% - 17px) 20px,calc(100% - 12px) 20px;background-size:5px 5px;background-repeat:no-repeat;padding-right:34px}
+.goalFieldRow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.goalModal footer{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
+
+.goalPickerModal{width:min(760px,100%)}
+.goalIconGrid{display:grid;gap:10px}
+.goalIconGrid.goal{grid-template-columns:repeat(auto-fill,minmax(122px,1fr))}
+.goalIconGrid.plan{grid-template-columns:repeat(auto-fill,minmax(104px,1fr))}
+.goalIconGrid button{flex-direction:column;gap:4px;padding:8px 6px;min-height:0;font-size:11px;line-height:1.3;text-align:center}
+.goalIconGrid img{width:100%;max-width:70px;aspect-ratio:1;object-fit:contain;image-rendering:pixelated}
+.goalIconGrid button[aria-pressed=true]{background:#253e53;color:#fff1c1;box-shadow:inset 2px 2px #5b7484,3px 3px #10283a}
+
+/* ---- narrow screens --------------------------------------------------- */
+@media(max-width:1100px){
+ .goalGrid{grid-template-columns:1fr}
+}
+@media(max-width:760px){
+ .goalsPage{padding:14px 11px;margin-bottom:85px}
+ /* Emblem stays beside the title; only the button drops to its own row. */
+ .goalsHero{flex-wrap:wrap;gap:12px;padding-bottom:16px}
+ .goalsHero>div:not(.goalsEmblem){flex:1 1 180px;min-width:0}
+ .goalsEmblem{padding:7px}
+ .goalsEmblem img{width:44px;height:44px}
+ .goalsHero h1{font-size:23px}
+ .goalsLead{font-size:14px}
+ .goalsAdd{margin-left:0;width:100%}
+ .goalTabs button{white-space:nowrap;padding:8px 10px}
+ .goalsStats{grid-template-columns:1fr 1fr;gap:8px}
+ .goalsStats>div{padding:10px 12px}
+ .goalsStats strong{font-size:22px}
+ .goalTabs button{flex:1;font-size:14px;padding:8px}
+ .goalCard{padding:14px}
+ .goalTop{grid-template-columns:auto minmax(0,1fr);gap:11px}
+ .goalArt img{width:56px;height:56px}
+ .goalTools{grid-column:1/-1;flex-direction:row;justify-content:flex-end}
+ .goalProgress{grid-template-columns:minmax(0,1fr) auto;gap:8px}
+ .goalProgress b{grid-column:1/-1;order:3}
+ /* Two rows on a phone: art + title, then the date beside the add button. */
+ .planAdd{grid-template-columns:auto minmax(0,1fr) auto;gap:7px}
+ .planIconPick{grid-column:1;grid-row:1}
+ .planAdd input:not(.planDue){grid-column:2/4;grid-row:1}
+ .goalsPage .planAdd .planDue{grid-column:1/3;grid-row:2;width:auto}
+ .planAdd .goalPrimary{grid-column:3;grid-row:2}
+ /* The due chip drops under the step name instead of squeezing it. */
+ .goalsPage .planCheck{grid-template-columns:auto auto minmax(0,1fr);gap:8px}
+ .planCheck .goalChip{grid-column:3;grid-row:2;justify-self:start}
+ .goalFormBody{grid-template-columns:1fr}
+ .goalArtPick{flex-direction:row;justify-self:start}
+ .goalArtPick img{width:56px;height:56px}
+ .goalFieldRow{grid-template-columns:1fr}
+ .goalModal{padding:16px}
+ .goalIconGrid.goal,.goalIconGrid.plan{grid-template-columns:repeat(auto-fill,minmax(92px,1fr))}
+}
+
+/* ---- opening animations ------------------------------------------------
+   Same feel as the focus stage: the sheet behind fades, the panel pops up,
+   and the icon tiles land one after another so a 30 tile grid does not
+   arrive as one slab. */
+@keyframes goalFade{from{opacity:0}}
+@keyframes goalPop{from{opacity:0;transform:translateY(18px) scale(.96)}}
+@keyframes goalTilePop{from{opacity:0;transform:translateY(9px) scale(.9)}}
+@keyframes goalConfirmIn{from{opacity:0;transform:translateY(-6px)}}
+.goalBackdrop{animation:goalFade .18s ease}
+.goalModal{animation:goalPop .3s cubic-bezier(.2,.8,.3,1.2)}
+/* The picker opens on top of the goal modal, so it lands a touch faster --
+   otherwise the two pops read as one slow move. */
+.goalPickerModal{animation-duration:.24s}
+.goalIconGrid button{animation:goalTilePop .26s cubic-bezier(.2,.8,.3,1.2) backwards;
+ animation-delay:calc(min(var(--i,0),20)*11ms)}
+.goalConfirm{animation:goalConfirmIn .18s ease}
+@media(prefers-reduced-motion:reduce){
+ .goalBackdrop,.goalModal,.goalIconGrid button,.goalConfirm{animation:none}
+}
