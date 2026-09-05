@@ -724,6 +724,16 @@ function GrowthStaircase({ count, event }) {
       </header>
       <p className="growthHint">เรียนจบและบันทึก 1 กิจกรรม = 1 ขั้น</p>
       <div className="growthStage" aria-hidden="true">
+        <div className="growthScenery">
+          <span className="growthSun" />
+          <svg className="growthMountains" viewBox="0 0 400 180" preserveAspectRatio="none" shapeRendering="crispEdges">
+            <path fill="#b8cfba" d="M0 110h25V95h25V80h25V60h25V40h25v20h25v25h25v20h25V90h25V70h25V50h25v20h25v25h25v20h25v-15h25v-20h25v100H0z" />
+            <path fill="#8db9a8" opacity=".65" d="M0 145h30v-20h30v-15h30v15h30v20h30v-20h30v-20h30v-15h30v20h30v20h30v15h30v-20h30v-15h40v70H0z" />
+          </svg>
+          <span className="growthCloud cloudOne" />
+          <span className="growthCloud cloudTwo" />
+          {[0,1,2,3].map(i=><span key={i} className={`growthWind wind${i}`} />)}
+        </div>
         {Array.from({ length: 6 }, (_, i) => (
           <div
             key={i}

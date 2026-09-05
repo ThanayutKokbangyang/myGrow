@@ -205,3 +205,16 @@ html,body{overflow-y:auto!important;overflow-x:hidden}
 
 /* Keep desk artwork aligned with its measured hit area while hovering. */
 .pixelDashboard .station,.pixelDashboard .station:hover,.pixelDashboard .station:active{transform:translate(-50%,-50%)}
+
+/* A quiet pixel landscape behind the learning staircase. */
+.pixelDashboard .growthStage{isolation:isolate;background:linear-gradient(#dfeee5 0%,#edf0d7 65%,#efe2b4 100%);border:2px solid #b4c6ac;box-shadow:inset 2px 2px #ffffff80;margin-top:16px;min-height:235px}
+.growthScenery{position:absolute;inset:0;overflow:hidden;z-index:-1;pointer-events:none}
+.growthSun{position:absolute;left:13%;top:17%;width:28px;height:28px;background:#f9d987;box-shadow:4px 0 #f5dda1,-4px 0 #f5dda1,0 4px #f5dda1,0 -4px #f5dda1,0 0 0 10px #f9e7aa33}
+.growthMountains{position:absolute;bottom:0;left:0;width:100%;height:68%;opacity:.65}
+.growthCloud{position:absolute;width:72px;height:10px;background:#fffdf0;box-shadow:10px -7px #fffdf0,22px -14px 0 -1px #fffdf0,38px -7px #fffdf0,5px 5px #d2dfcf80;opacity:.8;animation:growthCloudDrift 32s linear infinite}
+.cloudOne{top:25%;left:-110px;animation-delay:-8s}.cloudTwo{top:43%;left:-110px;animation-duration:45s;animation-delay:-28s;scale:.7;opacity:.6}
+.growthWind{position:absolute;left:-100px;width:65px;height:2px;background:#fffdf1;opacity:0;box-shadow:20px 6px 0 -0.2px #ffffffaa;animation:growthWindDrift 12s linear infinite}
+.wind0{top:16%;animation-delay:-3s}.wind1{top:37%;animation-delay:-8s;width:40px;animation-duration:16s}.wind2{top:55%;animation-delay:-1s;animation-duration:14s}.wind3{top:69%;animation-delay:-11s;width:32px;animation-duration:19s}
+@keyframes growthCloudDrift{from{transform:translateX(0)}to{transform:translateX(750px)}}
+@keyframes growthWindDrift{0%{transform:translateX(0);opacity:0}15%,70%{opacity:.5}100%{transform:translateX(750px);opacity:0}}
+@media(prefers-reduced-motion:reduce){.growthCloud,.growthWind{animation:none}.cloudOne{left:36%}.cloudTwo{left:70%}.growthWind{display:none}}
