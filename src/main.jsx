@@ -589,36 +589,7 @@ function Today({
         </div>
       </section>
       <section className="sideCol">
-        <div className="card plan">
-          <div className="cardTitle">
-            <h2>Today's plan</h2>
-            <span>{Math.min(todayLogs.length, 4)}/4</span>
-          </div>
-          {Object.entries(SKILLS).map(([k, s]) => {
-            const log = todayLogs.find((x) => x.skill === k);
-            return (
-              <div className={`task ${log ? "" : "muted"}`} key={k}>
-                <span style={{ background: s.color }}>
-                  <SkillArt skill={k} />
-                </span>
-                <div>
-                  <b>{log?.topic || s.label}</b>
-                  <small>
-                    {log ? `${s.label} · ${log.minutes}m` : "ยังไม่ได้ฝึก"}
-                  </small>
-                </div>
-                {log ? (
-                  <PixelIcon name="check" className="done" />
-                ) : (
-                  <i className="checkBox" />
-                )}
-              </div>
-            );
-          })}
-          <button className="primary" onClick={() => setModal({ ...EMPTY })}>
-            <PixelIcon name="plus" /> Add activity
-          </button>
-        </div>
+        <GrowthStaircase count={growthCount} event={growthEvent} />
         <div className="card timer">
           <div className="metricTitle">
             <b>Pomodoro</b>
@@ -696,7 +667,36 @@ function Today({
             </div>
           ))}
         </section>
-        <GrowthStaircase count={growthCount} event={growthEvent} />
+        <div className="card plan">
+          <div className="cardTitle">
+            <h2>Today's plan</h2>
+            <span>{Math.min(todayLogs.length, 4)}/4</span>
+          </div>
+          {Object.entries(SKILLS).map(([k, s]) => {
+            const log = todayLogs.find((x) => x.skill === k);
+            return (
+              <div className={`task ${log ? "" : "muted"}`} key={k}>
+                <span style={{ background: s.color }}>
+                  <SkillArt skill={k} />
+                </span>
+                <div>
+                  <b>{log?.topic || s.label}</b>
+                  <small>
+                    {log ? `${s.label} · ${log.minutes}m` : "ยังไม่ได้ฝึก"}
+                  </small>
+                </div>
+                {log ? (
+                  <PixelIcon name="check" className="done" />
+                ) : (
+                  <i className="checkBox" />
+                )}
+              </div>
+            );
+          })}
+          <button className="primary" onClick={() => setModal({ ...EMPTY })}>
+            <PixelIcon name="plus" /> Add activity
+          </button>
+        </div>
       </div>
       <section className="card streakCard">
         <PixelIcon name="flame" />
