@@ -116,6 +116,13 @@ async function handleApi(request, env, url) {
       return json({ error: "รหัสยืนยันไม่ถูกต้อง" }, 401);
     return json({ ok: true, token: await issueToken(env.SESSION_SECRET) });
   }
+  if (url.pathname === '/api/wins' && ['GET','POST'].includes(request.method)) {
+    if (request.method === 'POST' && !(await validToken(request, env))) return json({error:'กรุณายืนยันว่าเป็นเท่ก่อนบันทึก'},401);
+    const body=request.method==='POST'?await request.json().catch(()=>null):null;
+    if(request.method==='POST' && (!Array.isArray(body?.changes)||body.changes.length>1000))return json({error:'ข้อมูลไม่ถูกต้อง'},400);
+    try { return json(await sheetRequest(env, {action:request.method==='GET'?'wins_list':'wins_apply',changes:body?.changes})); }
+    catch(error){return json({error:error.message==='ACTION_INVALID'?'กรุณาอัปเดตและ Deploy Apps Script เวอร์ชัน SmallWins ก่อน':error.message},503);}
+  }
   if (url.pathname === "/api/activities" && request.method === "GET") {
     try {
       return json(await sheetRequest(env, { action: "list" }));

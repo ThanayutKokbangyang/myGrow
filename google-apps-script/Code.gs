@@ -11,6 +11,7 @@ function doPost(e) {
     const body = JSON.parse((e.postData && e.postData.contents) || '{}');
     const expected = PropertiesService.getScriptProperties().getProperty('GROW_ROOM_SECRET');
     if (!expected || body.secret !== expected) return response_({ ok: false, error: 'SECRET_INVALID' });
+    if (body.action === 'wins_list' || body.action === 'wins_apply') return response_(smallWins_(body));
     if (body.action === 'list') return response_({ ok: true, items: listActivities_() });
     if (body.action === 'append') return response_({ ok: true, item: appendActivity_(body.item || {}) });
     if (body.action === 'delete') return response_({ ok: true, deleted: deleteActivity_(String(body.id || '')) });
@@ -71,4 +72,38 @@ function rowToActivity_(row) {
 
 function response_(payload) {
   return ContentService.createTextOutput(JSON.stringify(payload)).setMimeType(ContentService.MimeType.JSON);
+}
+
+// Small wins share the existing spreadsheet and owner authentication.
+function smallWins_(body) {
+  const lock = LockService.getScriptLock(); lock.waitLock(30000);
+  try {
+    const book = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let sheet = book.getSheetByName('SmallWins');
+    if (!sheet) { sheet = book.insertSheet('SmallWins'); sheet.appendRow(['id','date','category','text','updated_at']); sheet.setFrozenRows(1); }
+    const read = () => sheet.getLastRow()<2 ? [] : sheet.getRange(2,1,sheet.getLastRow()-1,5).getDisplayValues().filter(r=>r[0]).map(r=>({id:r[0],date:r[1],category:r[2],text:r[3]}));
+    if (body.action === 'wins_list') return {ok:true,items:read()};
+    const ops = body.changes;
+    if (!Array.isArray(ops) || ops.length>1000) throw new Error('INVALID_CHANGES');
+    ops.forEach(op=>{
+      if (!op || !['upsert','delete'].includes(op.type) || typeof op.id!=='string' || !op.id || op.id.length>100) throw new Error('INVALID_ID');
+      if (op.type==='upsert') {
+        const w=op.item;
+        if (!w || w.id!==op.id || typeof w.text!=='string' || !w.text.trim() || w.text.length>1000 || !/^\d{4}-\d{2}-\d{2}$/.test(w.date) || !['health','learning','work','life','other'].includes(w.category)) throw new Error('INVALID_WIN');
+        const parsed=new Date(w.date+'T12:00:00Z');
+        if(isNaN(parsed.getTime())||Utilities.formatDate(parsed,'UTC','yyyy-MM-dd')!==w.date)throw new Error('INVALID_DATE');
+      }
+    });
+    ops.forEach(op=>{
+      const rows=read(), index=rows.findIndex(w=>w.id===op.id);
+      if (op.type==='delete') { if(index>=0)sheet.deleteRow(index+2); return; }
+      if(index>=0 && op.createOnly)return;
+      const w=op.item,row=index>=0?index+2:sheet.getLastRow()+1;
+      if(row>sheet.getMaxRows())sheet.insertRowsAfter(sheet.getMaxRows(),100);
+      const range=sheet.getRange(row,1,1,5);range.setNumberFormat('@');
+      // Leading apostrophe forces user text to remain literal, including '=...'.
+      range.setValues([[w.id,w.date,w.category,w.text.trim(),new Date().toISOString()].map(v=>"'"+v)]);
+    });
+    return {ok:true,items:read()};
+  } finally { lock.releaseLock(); }
 }

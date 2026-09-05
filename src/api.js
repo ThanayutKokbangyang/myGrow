@@ -16,3 +16,6 @@ export async function verifyOwner(code){const result=await api('/api/auth',{meth
 export async function loadActivities(){const result=await api('/api/activities');return result.items||[]}
 export async function createActivity(item){return api('/api/activities',{method:'POST',body:JSON.stringify(item)})}
 export async function deleteActivity(id){return api('/api/activities',{method:'POST',body:JSON.stringify({_action:'delete',id})})}
+
+export async function loadWins(){const r=await api('/api/wins');return r.items||[]}
+export async function applyWins(changes){return api('/api/wins',{method:'POST',body:JSON.stringify({changes})})}

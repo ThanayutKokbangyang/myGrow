@@ -467,7 +467,7 @@ function App() {
             }}
           />
         ) : view === "wins" ? (
-          <SmallWins onSuccess={celebrateSound} />
+          <SmallWins onSuccess={celebrateSound} onRequireOwner={()=>setVerify({type:"wins"})} />
         ) : view === "history" ? (
           <HistoryView logs={logs} remove={remove} />
         ) : (

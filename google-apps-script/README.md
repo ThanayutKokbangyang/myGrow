@@ -1,13 +1,14 @@
-# เชื่อม Grow Room กับ Google Sheet
+# Grow Room Google Sheets integration
 
-Google Sheet: **Grow Room Activities**
+Keep all credentials in Apps Script Properties and server environment variables. Never commit their values.
 
-1. เปิด Google Sheet แล้วเลือก **ส่วนขยาย > Apps Script**
-2. วางโค้ดจาก `Code.gs` ทับโค้ดเดิม
-3. เปิด **การตั้งค่าโปรเจกต์ > พร็อพเพอร์ตี้ของสคริปต์**
-4. เพิ่มชื่อ `GROW_ROOM_SECRET` และค่า `GRW-TAE-482731-K9Q7-M4N2`
-5. เลือก **ทำให้ใช้งานได้ > การทำให้ใช้งานได้รายการใหม่ > เว็บแอป**
-6. ตั้ง **ดำเนินการในฐานะ: ฉัน** และ **ผู้ที่มีสิทธิ์เข้าถึง: ทุกคน**
-7. ส่ง Web App URL กลับมาเพื่อใส่ใน Environment Variable ชื่อ `GOOGLE_APPS_SCRIPT_URL`
+## Enable SmallWins on the existing deployment
 
-รหัสยืนยันหน้าเว็บคือ `482731` และจะถูกเก็บเป็น session token ในเบราว์เซอร์หลังยืนยันสำเร็จ ไม่ได้เก็บรหัสจริงไว้ในหน้าเว็บ
+1. Open the existing spreadsheet → Extensions → Apps Script.
+2. Replace the existing `Code.gs` with the complete `google-apps-script/Code.gs` from this repository and save. Preserve the existing `GROW_ROOM_SECRET` script property.
+3. Deploy → Manage deployments → Edit (pencil) → Version: New version → Deploy. Update the existing deployment so the Web App URL stays the same; no environment changes are needed.
+4. Open ความสำเร็จเล็ก ๆ and click โหลดใหม่. After the connection succeeds, click ย้ายรายการเดิมเข้า Sheet if shown, using the browser that holds the old records. Verify identity with the same owner code when prompted, then retry the action.
+
+`SmallWins` uses columns `id`, `date`, `category`, `text`, `updated_at`. The script creates this tab if missing. Activities keeps its existing schema. Dates for new wins still default to today. Edits keep their original date. Migration uses stable IDs and never overwrites an existing cloud record. Local records are kept until synchronization succeeds. Every write uses the existing owner-token check and the existing Apps Script secret.
+
+Validation: `npm run build` and `node --test tests/sheet-wins.test.mjs tests/wins-model.test.mjs`.
