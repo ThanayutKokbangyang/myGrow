@@ -202,3 +202,6 @@ html,body{overflow-y:auto!important;overflow-x:hidden}
 @media(min-width:1101px){.pixelDashboard{grid-template-rows:minmax(480px,auto) auto!important;align-items:stretch}.pixelDashboard .sideCol{grid-template-rows:minmax(350px,1fr) minmax(220px,auto) minmax(165px,auto)!important;align-content:start}.pixelDashboard .growthSummary{align-items:stretch}}
 @media(max-width:1100px){.pixelDashboard .sideCol{grid-template-columns:1fr 1fr;grid-template-rows:auto!important}.pixelDashboard .sideCol>.growthCard{grid-column:1/-1;grid-row:1}.pixelDashboard .sideCol>.timer{grid-column:1;grid-row:2}.pixelDashboard .sideCol>.focus{grid-column:2;grid-row:2}.pixelDashboard .growthSummary>.plan{grid-row:auto}}
 @media(max-width:620px){.pixelDashboard .sideCol{grid-template-columns:minmax(0,1fr)}.pixelDashboard .sideCol>.timer{grid-column:1;grid-row:2}.pixelDashboard .sideCol>.focus{grid-column:1;grid-row:3}.app>main{padding-bottom:95px!important}}
+
+/* Keep desk artwork aligned with its measured hit area while hovering. */
+.pixelDashboard .station,.pixelDashboard .station:hover,.pixelDashboard .station:active{transform:translate(-50%,-50%)}

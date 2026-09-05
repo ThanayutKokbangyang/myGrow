@@ -25,3 +25,5 @@
 .pixelWins .pixelWinsEmpty p,.pixelWins .winMessage{font-size:16px}
 .pixelWins .winsTotal span{font-size:13px}
 @media(max-width:540px){.pixelWins .winCalendarHeading{flex-wrap:wrap}.pixelWins .winCalendarHeading h2{font-size:19px}.pixelWins .winCalendarGrid button{min-height:46px}.pixelWins .winCategoryPick button{font-size:14px}.pixelWins .winsHero h1{font-size:24px}}
+
+.pixelWins .winEntriesScroll{max-height:530px;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable;padding:0 6px 4px 0;scrollbar-width:thin;scrollbar-color:#887651 #f3e6c6}.pixelWins .winEntriesScroll article{min-height:160px}.pixelWins .winEntriesScroll article:first-child{margin-top:0}.pixelWins .winEntriesScroll:focus-visible{outline:3px solid #e0a739;outline-offset:4px}

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
+import {contains,roomGeometry} from "./room-geometry";
 import {MusicPlayer, SmallWins, unlockSound, woodStep, winSound} from "./comfort";
 import {
   clearOwnerToken,
@@ -57,13 +58,8 @@ const uiIcon = (name) => `/ui/pixel/${name}.png`;
 function PixelIcon({ name, className = "" }) {
   return <img className={`pixelIcon ${className}`} src={uiIcon(name)} alt="" />;
 }
-const hitsTable = (p) =>
-  Object.values(SKILLS).some(
-    (s) => Math.abs(p.x - s.pos.x) < 18 && Math.abs(p.y - s.pos.y) < 20,
-  );
-
-function findWalkPath(start,end){
-  const step=2,minX=3,maxX=97,minY=12,maxY=94;
+function findWalkPath(start,end,hitsTable){
+  const step=1,minX=3,maxX=97,minY=12,maxY=94;
   const cols=Math.floor((maxX-minX)/step)+1,rows=Math.floor((maxY-minY)/step)+1;
   
   const cell=p=>({
@@ -73,19 +69,9 @@ function findWalkPath(start,end){
   const point=c=>({x:minX+c.x*step,y:minY+c.y*step});
   const from=cell(start),to=cell(end),key=c=>`${c.x},${c.y}`;
   
-  // ลดระยะการชนโต๊ะลงอีก (14/16 → 10/12)
-  const hitsTable=p=>
-    Object.values(SKILLS).some(s=>
-      Math.abs(p.x-s.pos.x)<10&&Math.abs(p.y-s.pos.y)<12
-    );
-  
-  // ไม่ block จุดเริ่มต้น และจุดปลายทาง
-  const blocked=c=>{
-    const ck=key(c);
-    if(ck===key(from)||ck===key(to))return false;
-    return hitsTable(point(c));
-  };
-  
+  const blocked=c=>hitsTable(point(c));
+  if(hitsTable(end))return [];
+  const clearSegment=(a,b)=>{const n=Math.max(1,Math.ceil(Math.hypot(b.x-a.x,b.y-a.y)*4));for(let i=1;i<=n;i++){if(hitsTable({x:a.x+(b.x-a.x)*i/n,y:a.y+(b.y-a.y)*i/n}))return false;}return true;};
   const open=[from],came=new Map(),g=new Map([[key(from),0]]),seen=new Set();
   
   while(open.length){
@@ -113,6 +99,7 @@ function findWalkPath(start,end){
         simple.push(b);
       }
       simple.push(end);
+      if(!simple.slice(1).every((p,i)=>clearSegment(simple[i],p)))return [];
       return simple.slice(1);
     }
     
@@ -256,8 +243,10 @@ function App() {
   };
   function moveTo(next,done){
   cancelAnimationFrame(walkAnimation.current);
-  const route=findWalkPath({...posRef.current},next);
-  if(!route.length)return;
+  setWalking(false);
+  const geometry=roomGeometry(roomRef.current,characterRef.current);
+  const route=findWalkPath({...posRef.current},next,p=>geometry.some(d=>contains(d.collision,p)));
+  if(!route.length)return false;
   setWalking(true);
   let index=0;
   const nextSegment=()=>{
@@ -317,39 +306,27 @@ function App() {
   };
   
   nextSegment();
+  return true;
 }
   function walk(e) {
-    if (e.target.closest(".station")) return;
-    const r = roomRef.current.getBoundingClientRect(),
-      next = {
-        x: Math.max(4, Math.min(96, ((e.clientX - r.left) / r.width) * 100)),
-        y: Math.max(12, Math.min(94, ((e.clientY - r.top) / r.height) * 100)),
-      };
-    if (hitsTable(next)) {
-      notify("ตรงนั้นมีโต๊ะอยู่ ลองคลิกพื้นที่ว่างนะ");
-      return;
-    }
-    moveTo(next);
+    const room=roomRef.current,r=room.getBoundingClientRect();
+    const point={x:e.clientX-r.left-room.clientLeft,y:e.clientY-r.top-room.clientTop};
+    const desks=roomGeometry(room,characterRef.current);
+    const hit=desks.find(d=>contains(d.raw,point));
+    if(hit){goSkill(hit.code);return;}
+    const next={x:Math.max(3,Math.min(97,point.x/room.clientWidth*100)),y:Math.max(12,Math.min(94,point.y/room.clientHeight*100))};
+    if(!moveTo(next))notify("จุดนี้เดินไปไม่ได้ ลองเลือกพื้นที่ข้างโต๊ะนะ");
   }
   function goSkill(k){
-  const p=SKILLS[k].pos;
-  const currentPos={...posRef.current};
-  
-  // เดินไปใกล้โต๊ะ (y+10 แทน y+22 เพื่อให้ใกล้ขึ้น)
-  moveTo({x:p.x,y:p.y+10},()=>{
-    // พอเดินถึงแล้วค่อยหันหน้าเข้าหาโต๊ะ
-    let targetDir;
-    if(Math.abs(currentPos.x-p.x) > Math.abs(currentPos.y-p.y)){
-      targetDir = currentPos.x > p.x ? 'left' : 'right';
-    } else {
-      targetDir = currentPos.y > p.y ? 'up' : 'down';
-    }
-    
-    setDirection(targetDir);
-    
-    setModal({...EMPTY,skill:k});
-  });
-}
+    const desk=roomGeometry(roomRef.current,characterRef.current).find(d=>d.code===k);
+    if(!desk)return;
+    const r=desk.collision,cx=(r.left+r.right)/2,cy=(r.top+r.bottom)/2;
+    const candidates=[{x:cx,y:r.bottom+2,dir:'up'},{x:r.left-2,y:cy,dir:'right'},{x:r.right+2,y:cy,dir:'left'},{x:cx,y:r.top-2,dir:'down'}]
+      .filter(p=>p.x>=3&&p.x<=97&&p.y>=12&&p.y<=94)
+      .sort((a,b)=>Math.hypot(a.x-posRef.current.x,a.y-posRef.current.y)-Math.hypot(b.x-posRef.current.x,b.y-posRef.current.y));
+    for(const p of candidates){if(moveTo({x:p.x,y:p.y},()=>{directionRef.current=p.dir;setDirection(p.dir);setModal({...EMPTY,skill:k});}))return;}
+    notify("ยังเดินเข้าโต๊ะนี้ไม่ได้ ลองขยับออกมาก่อนนะ");
+  }
   async function saveNow(data) {
     const item = {
       ...data,
@@ -557,7 +534,7 @@ function Today({
       <section className="roomPanel">
         <div className="room" ref={roomRef} onClick={walk}>
           {Object.entries(SKILLS).map(([k, s]) => (
-            <Station key={k} code={k} {...s} onClick={() => goSkill(k)} />
+            <Station key={k} code={k} {...s} onClick={e => { if(e.detail===0){ e.stopPropagation(); goSkill(k); } }} />
           ))}
           <div
             ref={characterRef}
@@ -814,6 +791,7 @@ function Station({ code, label, desk, color, onClick, pos }) {
   return (
     <button
       className={`station ${code}`}
+      data-skill={code}
       style={{ "--c": color, left: `${pos.x}%`, top: `${pos.y}%` }}
       onClick={onClick}
     >
