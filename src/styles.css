@@ -397,7 +397,10 @@ html,body{overflow-y:auto!important;overflow-x:hidden}
 .focusStop{background:#c0492f!important;color:#fff!important;border-color:#5d1f14!important;
   box-shadow:inset 3px 3px #f08e72,3px 3px #132338!important}
 
-.focusLibrary{flex:1;min-height:0;overflow:auto;width:min(760px,100%);margin:0 auto;padding:6px 20px 120px}
+.focusLibrary{flex:1;min-height:0;overflow:auto;width:min(760px,100%);margin:0 auto;padding:6px 20px 120px;
+  /* Short content sat pinned to the top of a tall screen. `safe` keeps the
+     first item reachable when the list is long enough to scroll. */
+  display:flex;flex-direction:column;justify-content:safe center}
 .focusLibrary header{color:#fff3d3;text-shadow:2px 2px #020811}
 .focusLibrary header h2{margin:0 0 4px;font-size:clamp(20px,2.4vw,27px)}
 .focusLibrary header p{margin:0 0 20px;color:#9fb6d3;font-size:14px;text-shadow:none}
@@ -689,6 +692,10 @@ body.stage-open .musicWidget{z-index:45}
    no longer sits in the flow pushing the picker down. Keep the picker clear of
    where it starts. */
 @media(min-width:1180px){.focusStage .focusLibrary{margin-right:376px}}
+/* Past this width the centred picker already clears the card's parking spot
+   (its right edge is (W+760)/2, the card starts at W-346), so stop shoving it
+   sideways -- that offset was what made a wide screen look lopsided. */
+@media(min-width:1460px){.focusStage .focusLibrary{margin-right:auto}}
 /* Still room beside it: narrow the picker and pin it left instead of stacking. */
 @media(min-width:900px) and (max-width:1179px){
   .focusStage .focusLibrary{width:min(680px,calc(100% - 372px));margin:0 auto 0 24px}
