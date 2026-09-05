@@ -156,7 +156,6 @@ function App() {
   );
   const roomRef = useRef(null);
   const characterRef = useRef(null);
-  const spriteRef = useRef(null);
   const walkAnimation = useRef(null);
   const posRef = useRef(pos);
   const directionRef = useRef(direction);
@@ -257,18 +256,7 @@ function App() {
       setPos(next);
       setWalking(false);
       
-      // หันหน้าไปทางทิศทางสุดท้ายที่เดิน
-      const lastStart={...posRef.current};
-      const dx=next.x-lastStart.x;
-      const dy=next.y-lastStart.y;
-      const finalDir=Math.abs(dx)>=Math.abs(dy)
-        ?(dx>0?'right':'left')
-        :(dy>0?'down':'up');
-      
-      setDirection(finalDir);
-      if(spriteRef.current){
-        spriteRef.current.src=`/sprite/directions/${finalDir}.png`;
-      }
+      setDirection(directionRef.current);
       
       done?.();
       return;
@@ -293,9 +281,6 @@ function App() {
     setPos(start);
     setDirection(segmentDirection);
     
-    if(spriteRef.current){
-      spriteRef.current.src=`/sprite/directions/${segmentDirection}.png`;
-    }
     
     const duration=Math.max(180,distance*46);
     const started=performance.now();
@@ -309,6 +294,7 @@ function App() {
         const x=roomRef.current.clientWidth*current.x/100;
         const y=roomRef.current.clientHeight*current.y/100;
         characterRef.current.style.transform=`translate3d(${x}px,${y}px,0) translate(-50%,-50%)`;
+        characterRef.current.style.setProperty("--depth-scale", .84 + current.y * .003);
       }
       
       if(progress<1){
@@ -351,9 +337,6 @@ function App() {
     }
     
     setDirection(targetDir);
-    if(spriteRef.current){
-      spriteRef.current.src=`/sprite/directions/${targetDir}.png`;
-    }
     
     setModal({...EMPTY,skill:k});
   });
@@ -486,7 +469,6 @@ function App() {
               goSkill,
               roomRef,
               characterRef,
-              spriteRef,
               timer,
               setTimer,
               running,
@@ -540,7 +522,6 @@ function Today({
   goSkill,
   roomRef,
   characterRef,
-  spriteRef,
   timer,
   setTimer,
   running,
@@ -569,15 +550,15 @@ function Today({
             className={`character ${walking ? "walk" : ""} ${celebrating ? "celebrate" : ""}`}
             style={{
               transform: `translate3d(${pos.x}cqw,${pos.y}cqh,0) translate(-50%,-50%)`,
+              "--depth-scale": .84 + pos.y * .003,
             }}
             role="img"
             aria-label="ตัวละคร Tae"
           >
-            <img
-              ref={spriteRef}
-              src={`/sprite/directions/${direction}.png`}
-              alt=""
-            />
+            <div className="characterVisual">
+              <span className="characterGroundShadow" />
+              <WalkingSprite direction={direction} walking={walking} />
+            </div>
           </div>
           {celebrating && (
             <div className="celebration" aria-hidden="true">
@@ -784,6 +765,34 @@ function GrowthStaircase({ count, event }) {
         {jumping ? "เก่งมาก! ก้าวไปอีกขั้นแล้ว" : count ? `เรียนรู้แล้ว ${count} กิจกรรม · ไปต่อทีละขั้น` : "ก้าวแรกเริ่มจากกิจกรรมแรกของเรา"}
       </p>
     </section>
+  );
+}
+
+// The original atlas contains three poses per direction, including real alternating steps.
+function WalkingSprite({ direction, walking }) {
+  const [phase, setPhase] = useState(0);
+  const [reducedMotion, setReducedMotion] = useState(false);
+  useEffect(() => {
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setReducedMotion(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+  useEffect(() => {
+    setPhase(0);
+    if (!walking || reducedMotion) return;
+    const timer = setInterval(() => setPhase(value => (value + 1) % 4), 140);
+    return () => clearInterval(timer);
+  }, [walking, reducedMotion]);
+  const pose = walking && !reducedMotion ? [1, 0, 2, 0][phase] : 0;
+  const row = { down: 0, left: 1, right: 2, up: 3 }[direction] ?? 0;
+  const x = [215, 505, 785][pose];
+  const y = [5, 315, 625, 935][row];
+  return (
+    <svg className="walkingSprite" viewBox={`${x} ${y} 220 300`} aria-hidden="true">
+      <image href="/tae-walk-sprite.png" width="1199" height="1312" />
+    </svg>
   );
 }
 

@@ -159,3 +159,19 @@ html,body,#root,.app{width:100%;max-width:100%;overflow-x:hidden}.app{grid-templ
 @keyframes growthSpriteLeap{0%,8%{left:var(--from-left);bottom:var(--from-bottom)}20%{left:calc((var(--from-left) + var(--to-left)) / 2);bottom:calc(var(--to-bottom) + 38px)}32%,100%{left:var(--to-left);bottom:var(--to-bottom)}}
 @keyframes growthSpriteCheer{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-7px)}}
 @media(prefers-reduced-motion:reduce){.growthCharacter.jumping,.growthCharacter.jumping .growthPose{animation:none}}
+
+/* Grounded four-direction walk: pose changes stay separate from world movement. */
+.pixelDashboard .character { filter:none; overflow:visible; }
+.pixelDashboard .characterVisual { position:absolute; inset:0; transform:scale(var(--depth-scale,1)); transform-origin:50% 88%; }
+.pixelDashboard .characterGroundShadow { position:absolute; left:25%; bottom:4%; width:50%; height:12%; border-radius:50%; background:radial-gradient(ellipse,#251c25a6 0%,#251c2555 48%,transparent 74%); transform:scaleX(1.15); }
+.pixelDashboard .walkingSprite { position:absolute; left:13%; bottom:5%; width:74%; height:100%; overflow:hidden; image-rendering:pixelated; filter:drop-shadow(1px 2px 0 #1c182933); transform-origin:50% 95%; }
+.pixelDashboard .character.walk .walkingSprite { animation:groundedStride .28s ease-in-out infinite; }
+.pixelDashboard .character.walk .characterGroundShadow { animation:strideShadow .28s ease-in-out infinite; }
+.pixelDashboard .character.celebrate .walkingSprite { animation:happyJump .48s cubic-bezier(.2,.8,.3,1) 4; }
+@keyframes groundedStride { 0%,100% { transform:translateY(0) rotate(-1deg); } 50% { transform:translateY(-2px) rotate(1deg); } }
+@keyframes strideShadow { 0%,100% { transform:scaleX(1.15); opacity:.9; } 50% { transform:scaleX(.96); opacity:.65; } }
+@media(prefers-reduced-motion:reduce) {
+  .pixelDashboard .character.walk .walkingSprite,
+  .pixelDashboard .character.walk .characterGroundShadow,
+  .pixelDashboard .character.celebrate .walkingSprite { animation:none; }
+}
