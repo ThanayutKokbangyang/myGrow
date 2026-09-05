@@ -608,19 +608,31 @@ function Today({
             </div>
           </div>
         </div>
-        <div className="card focus">
-          <header className="focusHeading"><b>Focus time</b><MusicPlayer /></header>
-          <div>
-            <span className="focusIcon">
-              <img src="/ui/focus.png" alt="" />
-            </span>
-            <div className="focusInfo">
-              <strong>
-                {Math.floor(minutes / 60)}h {minutes % 60}m
-              </strong>
-              <small>เวลาฝึกวันนี้</small>
+        <div className="focusRow">
+          <div className="card focus">
+            <header className="focusHeading"><b>Focus time</b><MusicPlayer /></header>
+            <div>
+              <span className="focusIcon">
+                <img src="/ui/focus.png" alt="" />
+              </span>
+              <div className="focusInfo">
+                <strong>
+                  {Math.floor(minutes / 60)}h {minutes % 60}m
+                </strong>
+                <small>เวลาฝึกวันนี้</small>
+              </div>
             </div>
           </div>
+          <section className="card streakCard">
+            <PixelIcon name="flame" />
+            <h2>{streak} day streak</h2>
+            <div className="streakDots">
+              {[0, 1, 2, 3, 4, 5, 6].map((x) => (
+                <i className={x < Math.min(streak, 7) ? "on" : ""} key={x} />
+              ))}
+            </div>
+            <strong>+{xp % 500} XP</strong>
+          </section>
         </div>
       </section>
       <div className="growthSummary">
@@ -675,16 +687,6 @@ function Today({
           </button>
         </div>
       </div>
-      <section className="card streakCard">
-        <PixelIcon name="flame" />
-        <h2>{streak} day streak</h2>
-        <div className="streakDots">
-          {[0, 1, 2, 3, 4, 5, 6, 7].map((x) => (
-            <i className={x < Math.min(streak, 8) ? "on" : ""} key={x} />
-          ))}
-        </div>
-        <strong>+{xp % 500} XP</strong>
-      </section>
     </div>
   );
 }
