@@ -16,7 +16,7 @@ async function lookupTitle(id){
  }catch{return ''}
 }
 
-export function FocusStage({onClose,timer,setTimer,running,setRunning,sessions}){
+export function FocusStage({onClose,timer,setTimer,running,setRunning,phase,setPhase,sessions}){
  const [videos,setVideos]=useState(()=>clean(read(STORE,[])));
  const [playing,setPlaying]=useState(()=>{const id=read(LAST,null);return typeof id==='string'&&/^[\w-]{11}$/.test(id)?id:null});
  const [muted,setMuted]=useState(true);          // starts silent on purpose
@@ -126,7 +126,7 @@ export function FocusStage({onClose,timer,setTimer,running,setRunning,sessions})
   <div ref={timerBox} className={`focusTimer${playing?' floating':''}`}
     style={playing?timerDrag.style:undefined}>
    {playing&&<div className="focusTimerGrip" {...timerDrag.dragProps} title="ลากเพื่อย้ายตำแหน่ง">⠿ ลากได้</div>}
-   <PomodoroCard {...{timer,setTimer,running,setRunning,sessions}}/>
+   <PomodoroCard {...{timer,setTimer,running,setRunning,phase,setPhase,sessions}}/>
   </div>
 
   <div className={`focusBottom${barShown||!playing?' show':''}`}

@@ -2,3 +2,62 @@
 @media(max-width:800px){.fcPage{padding:18px}.fcHeader{flex-wrap:wrap}.fcHeader h1{font-size:26px}.fcHeader>.fcPrimary{margin-left:0}.fcStats{grid-template-columns:repeat(2,minmax(0,1fr))}.fcWordList article{grid-template-columns:1fr 1fr}.fcWordActions{grid-column:1/-1}.fcStudyHeading{align-items:start;flex-direction:column}.fcStudy{padding:16px}.fcCard{height:390px}}
 @media(max-width:480px){.fcPage{padding:14px 10px;margin-bottom:85px}.fcHeader{gap:12px}.fcEmblem{padding:9px}.fcHeader h1{font-size:23px}.fcHeader p{font-size:10px}.fcHeader>.fcPrimary{width:100%}.fcNav{gap:7px}.fcNav button{font-size:13px;padding:8px;gap:5px;flex:1}.fcNav .fcIcon{width:19px;height:19px}.fcFace{padding:22px 14px}.fcCard{height:410px}.fcReviewActions{display:grid;grid-template-columns:1fr 1fr}.fcReviewActions button{font-size:14px;padding:9px}.fcReviewActions kbd{display:none}.fcModalBackdrop{padding:10px}.fcModal{padding:18px}.fcFront form{flex-direction:column;align-items:stretch}.fcStats{gap:8px}.fcStats>div{padding:12px}.fcStats span{font-size:12px}}
 @media(prefers-reduced-motion:reduce){.fcCardInner{transition:none}}
+
+/* ---- Flashcard, dropdown and file pickers -------------------------------
+   The card filled the whole column as a flat white slab, and the select and
+   the file inputs were left as the browser drew them, which looked nothing
+   like the rest of the app. */
+
+/* A card shaped like a card: portrait, centred, on the same paper as the
+   other panels, with the chunky pixel frame and a hard offset shadow. */
+.fcCard{width:min(430px,100%);height:min(520px,64vh);margin:22px auto;perspective:1400px}
+.fcFace{border:4px solid #31495b;border-radius:0;padding:26px 22px;
+  background:linear-gradient(150deg,#fffaea,#f6e7c0);
+  box-shadow:inset 0 0 0 3px #fffdf6,inset 0 0 0 5px #e6d2a4,7px 8px 0 #1d2f42}
+/* Corner ornaments, so the frame reads as a printed card rather than a box. */
+.fcFace::before{content:'';position:absolute;left:10px;top:10px;right:10px;bottom:10px;
+  border:2px dashed #d9c49a;pointer-events:none}
+.fcFace::after{right:14px;bottom:14px;width:9px;height:9px;background:#cbab63;box-shadow:-14px 0 #cbab63,0 -14px #cbab63}
+.fcBack{background:linear-gradient(150deg,#eef7ee,#d9ebdd);
+  box-shadow:inset 0 0 0 3px #fbfffa,inset 0 0 0 5px #bcd9c2,7px 8px 0 #1d2f42}
+.fcCardInner{transition:transform .5s cubic-bezier(.2,.8,.3,1.05)}
+.fcTag{align-self:flex-start;background:#253e53;color:#ffe097;border:2px solid #15293a;
+  box-shadow:2px 2px #9c7746;padding:5px 10px;font:800 11px 'Courier New',monospace;letter-spacing:1px}
+.fcFlipSurface{background:none!important;border:0!important;box-shadow:none!important;
+  min-height:0!important;flex:1;width:100%;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:10px;padding:0!important}
+.fcFlipSurface:active{transform:none!important}
+.fcFront .fcFlipSurface strong{font:800 clamp(30px,4.4vw,42px)/1.15 'Noto Sans Thai',sans-serif;color:#1d3348}
+.fcFront .fcFlipSurface span{font:400 17px 'Courier New',monospace;color:#7c6636}
+.fcFront .fcFlipSurface small{font-size:12px;color:#9a8a6a}
+
+/* Dropdown: no native chrome, a drawn pixel arrow instead. */
+.fcPage select{appearance:none;-webkit-appearance:none;padding-right:38px;cursor:pointer;
+  background-color:#fffdf3;
+  background-image:linear-gradient(45deg,transparent 50%,#3d5a72 50%),linear-gradient(135deg,#3d5a72 50%,transparent 50%);
+  background-position:calc(100% - 19px) calc(50% + 2px),calc(100% - 13px) calc(50% + 2px);
+  background-size:6px 6px,6px 6px;background-repeat:no-repeat}
+.fcPage select:focus{border-color:#337f72;box-shadow:inset 2px 2px #cfe4df,0 0 0 3px #337f7233}
+.fcFilters label{display:flex;flex-direction:column;gap:6px;font:800 12px 'Courier New',monospace;
+  letter-spacing:1px;color:#7c6636}
+.fcFilters label select,.fcFilters label input{font:16px 'Noto Sans Thai',sans-serif;letter-spacing:0;color:#253a4a}
+
+/* File pickers: the real input is hidden and its label is the button. */
+/* `.fcPage label` stacks its children in a column, so the button needs the
+   more specific selector to lay the icon and the caption out in a row. */
+.fcPage .fcFileBtn{position:relative;display:inline-flex;flex-direction:row;align-items:center;
+  justify-content:center;gap:8px;min-height:44px;padding:9px 16px;cursor:pointer;
+  border:2px solid var(--fcInk);background:#f8e6b7;color:var(--fcInk);
+  box-shadow:inset 2px 2px #fff8e7,3px 3px #aa8b54;font:15px 'Noto Sans Thai',sans-serif;
+  max-width:100%;overflow:hidden}
+.fcFileBtn>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fcFileBtn:hover{filter:brightness(1.04)}
+.fcFileBtn:active{transform:translate(2px,2px);box-shadow:inset 1px 1px #bca67f}
+.fcFileBtn:focus-within{outline:3px solid #d29b32;outline-offset:4px}
+.fcFileBtn input[type=file]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.fcPage .fcBackup label.fcFileBtn{border:2px solid var(--fcInk);font-size:15px;font-weight:400}
+.fcPage .fcModal label>.fcFileBtn{margin-top:6px;width:100%}
+@media(max-width:480px){
+  .fcCard{height:min(470px,66vh);margin:16px auto}
+  .fcFace{padding:20px 14px}
+}

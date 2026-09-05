@@ -425,7 +425,17 @@ html,body{overflow-y:auto!important;overflow-x:hidden}
    that normally live under `.pixelDashboard .timer`. */
 .focusTimer{order:-1;align-self:flex-end;margin:14px 16px 0;width:min(340px,calc(100vw - 32px))}
 .focusTimer.floating{position:absolute;top:16px;right:16px;z-index:4;margin:0;order:0;align-self:auto;
-  width:min(310px,calc(100vw - 24px))}
+  width:min(330px,calc(100vw - 24px))}
+/* The character rides along in the stage too: its own row above the clock, so
+   the corner card stays narrow. */
+.focusTimer .timerBody.withScene{grid-template-rows:auto auto 42px;row-gap:10px;align-content:center}
+/* The art sits in the middle of its square frame, so a negative margin closes
+   the built-in empty band under it without cropping anything. */
+.focusTimer .timerBody.withScene>.pomoScene{grid-column:1/-1;grid-row:1;
+  width:clamp(104px,42%,132px);aspect-ratio:1;justify-self:center;margin-bottom:-14px}
+.focusTimer .timerBody.withScene>.tomatoRing{grid-column:2;grid-row:2}
+.focusTimer .timerBody.withScene>.timerReadout{grid-column:3;grid-row:2}
+.focusTimer .timerBody.withScene>.timerActions{grid-column:1/-1;grid-row:3}
 .focusTimerGrip{touch-action:none;cursor:grab;user-select:none;margin-bottom:6px;padding:4px 9px;
   align-self:flex-end;font:800 10px 'Courier New',monospace;letter-spacing:1px;color:#ffe097;
   background:#172c49;border:3px solid #0a1729;border-radius:2px;box-shadow:3px 3px #020811}
@@ -434,12 +444,16 @@ html,body{overflow-y:auto!important;overflow-x:hidden}
 .focusTimer .timer{padding:14px;margin:0}
 .focusTimer .metricTitle b{font:900 17px 'Courier New',monospace;color:#182b49}
 .focusTimer .metricTitle strong{font:700 16px 'Noto Sans Thai',sans-serif;color:#122035}
-.focusTimer .timerBody{display:grid;grid-template-columns:auto minmax(120px,1fr);
-  grid-template-rows:minmax(74px,auto) 42px;column-gap:14px;row-gap:10px;align-items:center;margin:6px 0 0}
-.focusTimer .tomatoRing{grid-column:1;grid-row:1;width:74px;height:74px;margin:0}
+/* Spacer columns on both sides keep the tomato and the clock centred as a pair
+   -- with the ring in column 1 it hung off the left edge while the readout
+   floated in the middle of the leftover space -- and the buttons underneath
+   still stretch the full width of the card. */
+.focusTimer .timerBody{display:grid;grid-template-columns:minmax(0,1fr) auto auto minmax(0,1fr);
+  grid-template-rows:minmax(74px,auto) 42px;column-gap:0;row-gap:10px;align-items:center;margin:6px 0 0}
+.focusTimer .tomatoRing{grid-column:2;grid-row:1;width:74px;height:74px;margin:0 16px 0 0}
 .focusTimer .tomatoRing:before{inset:8px}
 .focusTimer .tomatoRing img{width:54px;height:54px}
-.focusTimer .timerReadout{grid-column:2;grid-row:1;text-align:center}
+.focusTimer .timerReadout{grid-column:3;grid-row:1;text-align:center}
 .focusTimer .timerReadout strong{display:block;margin:0;font:900 clamp(30px,3vw,38px) 'Courier New',monospace;
   letter-spacing:2px;color:#122440}
 .focusTimer .timerReadout small{display:block;margin-top:5px;color:#8b6530;
@@ -465,7 +479,8 @@ html,body{overflow-y:auto!important;overflow-x:hidden}
 .focusClose{background:#172c49!important;color:#ffe097!important;border-color:#0a1729!important;
   box-shadow:inset 2px 2px #3a5a80,3px 3px #020811!important}
 @media(max-width:620px){
-  .focusTimer.floating{top:10px;right:10px;width:min(240px,calc(100vw - 20px))}
+  .focusTimer.floating{top:10px;right:10px;width:min(250px,calc(100vw - 20px))}
+  .focusTimer .timerBody.withScene>.pomoScene{width:clamp(84px,40%,104px)}
   .focusTimer.floating .timerBody{grid-template-columns:auto minmax(90px,1fr)}
   .focusTimer.floating .tomatoRing{width:60px;height:60px}
   .focusTimer.floating .tomatoRing img{width:44px;height:44px}
@@ -547,4 +562,82 @@ body.stage-open .musicWidget{z-index:45}
   .progressPage .progressRow>b{grid-column:2;grid-row:1}
   .progressPage .progressRow strong{grid-column:3;grid-row:1;text-align:right}
   .progressPage .progressRow .bar{grid-column:1/-1;grid-row:2}
+}
+/* Pomodoro scene: the character studies at the desk while the focus timer runs,
+   walks to bed for the break, and stands with a speech bubble when stopped.
+   Each sheet is 2048x512 -- four 512px frames played as a CSS sprite. */
+.pomoScene{position:relative;container-type:size;width:100%;aspect-ratio:1;
+  align-self:center;justify-self:center;max-height:100%;overflow:hidden}
+.pomoScene .sceneSprite{width:100%;height:100%;background-repeat:no-repeat;background-size:400% 100%;
+  background-position:0 center;image-rendering:pixelated}
+@keyframes sceneArrive{from{opacity:0}}
+/* Intro plays once, then only the looping frames repeat. Frame rates are quick
+   enough to read as motion rather than a slideshow. */
+.pomoScene .sceneSprite.study{animation:sceneArrive .18s ease-out,
+  studyIntro .5s steps(1) 1 both,studyLoop .99s steps(3) infinite .5s}
+@keyframes studyIntro{from{background-position-x:0%}to{background-position-x:33.3333%}}
+@keyframes studyLoop{from{background-position-x:33.3333%}to{background-position-x:133.3333%}}
+.pomoScene .sceneSprite.sleep{animation:sceneArrive .18s ease-out,
+  sleepIntro .96s steps(2) 1 both,sleepLoop 1.7s steps(2) infinite .96s}
+@keyframes sleepIntro{from{background-position-x:0%}to{background-position-x:66.6667%}}
+@keyframes sleepLoop{from{background-position-x:66.6667%}to{background-position-x:133.3333%}}
+/* The stopped sheet is the character alone, so it can also breathe between
+   frames -- there is no furniture to float. */
+.pomoScene .sceneSprite.stopped{transform-origin:50% 96%;
+  animation:sceneArrive .18s ease-out,stoppedLoop 2.8s steps(4) infinite,
+  sceneBreathe 2.8s ease-in-out infinite}
+@keyframes stoppedLoop{from{background-position-x:0%}to{background-position-x:133.3333%}}
+@keyframes sceneBreathe{0%,100%{transform:translateY(0)}50%{transform:translateY(-1.1%)}}
+/* The stopped sheet leaves its speech bubble empty on the last frame; the
+   caption shares the same loop so it appears on exactly that frame. */
+/* Sized from the scene itself, so the caption always fits the drawn bubble. */
+.sceneBubble{position:absolute;left:26%;right:27.5%;top:9%;height:18.9%;
+  display:grid;align-content:center;justify-items:center;text-align:center;color:#2c2216;
+  font-weight:800;font-family:'Noto Sans Thai',sans-serif;
+  font-size:min(8.2cqw,8.2cqh);line-height:1.04;pointer-events:none;
+  animation:sceneCaption 2.8s infinite}
+.sceneBubble i{font-style:normal;white-space:nowrap}
+/* Kept just inside the fourth frame (75%-100%) so it never bleeds onto a frame
+   that has no bubble drawn. */
+@keyframes sceneCaption{0%,75.5%{opacity:0}78%,98%{opacity:1}99.5%,100%{opacity:0}}
+/* The walker is scaled and footed to match the seated/standing character in the
+   sheets (character 74.6% of the frame height, feet at 96.3%), so nothing pops
+   in size when the walk hands over to the sheet. Travel is on the wrapper and
+   the stride on the sprite, so the two transforms do not fight -- and the
+   stride, the ground shadow and the 140ms pose cadence are the same ones the
+   room walk uses, so it reads as the same character moving. */
+.sceneWalk{position:absolute;inset:0}
+.sceneWalk .sceneWalker{position:absolute;left:17.8%;top:14.9%;width:64.4%;height:87.8%;
+  image-rendering:pixelated;filter:drop-shadow(2px 3px #1c182933);
+  transform-origin:50% 95%;animation:groundedStride .28s ease-in-out infinite}
+.sceneShadow{position:absolute;left:37%;width:26%;top:93.4%;height:5.4%;border-radius:50%;
+  background:radial-gradient(ellipse,#251c25a6 0%,#251c2555 48%,transparent 74%);
+  animation:strideShadow .28s ease-in-out infinite}
+.sceneWalk.toDesk{animation:sceneWalkLeft 1.1s linear,sceneArrive .15s ease-out}
+.sceneWalk.toBed{animation:sceneWalkRight 1.1s linear,sceneArrive .15s ease-out}
+@keyframes sceneWalkLeft{from{transform:translateX(46%)}to{transform:translateX(0)}}
+@keyframes sceneWalkRight{from{transform:translateX(-46%)}to{transform:translateX(0)}}
+
+.tomatoRing.resting{filter:saturate(.72)}
+
+/* Give the scene its own column beside the tomato ring. */
+.pixelDashboard .timerBody.withScene{grid-template-columns:minmax(104px,152px) auto minmax(128px,auto)}
+.pixelDashboard .timerBody.withScene>.pomoScene{grid-column:1;grid-row:1}
+.pixelDashboard .timerBody.withScene>.tomatoRing{grid-column:2;grid-row:1}
+.pixelDashboard .timerBody.withScene>.timerReadout{grid-column:3;grid-row:1}
+.pixelDashboard .timerBody.withScene>.timerActions{grid-column:1/-1;grid-row:2}
+@media(max-width:1100px){
+  /* Narrower cards: the scene takes its own full-width row above the clock. */
+  .pixelDashboard .timerBody.withScene{grid-template-columns:auto minmax(120px,auto);
+    grid-template-rows:minmax(110px,auto) minmax(74px,1fr) 44px}
+  /* Stays square so the frames are never stretched; it just gets its own row. */
+  .pixelDashboard .timerBody.withScene>.pomoScene{grid-column:1/-1;grid-row:1;
+    width:clamp(112px,30vw,156px);aspect-ratio:1;justify-self:center}
+  .pixelDashboard .timerBody.withScene>.tomatoRing{grid-column:1;grid-row:2}
+  .pixelDashboard .timerBody.withScene>.timerReadout{grid-column:2;grid-row:2}
+  .pixelDashboard .timerBody.withScene>.timerActions{grid-column:1/-1;grid-row:3}
+}
+@media(prefers-reduced-motion:reduce){
+  .pomoScene .sceneSprite,.sceneWalk,.sceneWalk .sceneWalker,.sceneShadow{animation:none}
+  .sceneBubble{animation:none;opacity:1}
 }

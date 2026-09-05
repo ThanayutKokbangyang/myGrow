@@ -5,7 +5,7 @@ import Flashcards from "./flashcards";
 import {contains,roomGeometry} from "./room-geometry";
 import {MusicPlayer, SmallWins, unlockSound, woodStep, winSound, smallWinSound} from "./comfort";
 import {FocusStage} from "./focus-stage";
-import {PixelIcon, PomodoroCard} from "./pomodoro-card";
+import {PixelIcon, PomodoroCard, FOCUS_SECONDS, BREAK_SECONDS} from "./pomodoro-card";
 import {
   clearOwnerToken,
   createActivity,
@@ -143,8 +143,9 @@ function App() {
   const [pos, setPos] = useState({ x: 48, y: 52 });
   const [direction, setDirection] = useState("down");
   const [walking, setWalking] = useState(false);
-  const [timer, setTimer] = useState(25 * 60);
+  const [timer, setTimer] = useState(FOCUS_SECONDS);
   const [running, setRunning] = useState(false);
+  const [phase, setPhase] = useState("focus");   // "focus" | "break"
   const [stage, setStage] = useState(false);
   const [sessions, setSessions] = useState(() =>
     Number(localStorage.getItem("grow-sessions") || 0),
@@ -220,11 +221,21 @@ function App() {
       () =>
         setTimer((v) => {
           if (v <= 1) {
+            // A finished focus session rolls straight into the 5 minute break,
+            // which is what sends the character off to the bed; the break then
+            // hands back to a fresh, paused focus session.
+            if (phase === "focus") {
+              setSessions((s) => s + 1);
+              setPhase("break");
+              notify("Pomodoro สำเร็จ! +25 XP · พัก 5 นาที");
+              playFinish();
+              return BREAK_SECONDS;
+            }
             setRunning(false);
-            setSessions((s) => s + 1);
-            notify("Pomodoro สำเร็จ! +25 XP");
+            setPhase("focus");
+            notify("พักครบแล้ว พร้อมลุยรอบต่อไป");
             playFinish();
-            return 25 * 60;
+            return FOCUS_SECONDS;
           }
           if (v <= 11) playBeep(660, 0.1, 0.18);
           return v - 1;
@@ -232,7 +243,7 @@ function App() {
       1000,
     );
     return () => clearInterval(id);
-  }, [running]);
+  }, [running, phase]);
   useEffect(
     () => () => {
       cancelAnimationFrame(walkAnimation.current);
@@ -472,6 +483,8 @@ function App() {
               setTimer,
               running,
               setRunning,
+              phase,
+              setPhase,
               sessions,
               setModal,
               openStage: () => setStage(true),
@@ -506,7 +519,7 @@ function App() {
       {stage && (
         <FocusStage
           onClose={() => setStage(false)}
-          {...{ timer, setTimer, running, setRunning, sessions }}
+          {...{ timer, setTimer, running, setRunning, phase, setPhase, sessions }}
         />
       )}
     </div>
@@ -537,6 +550,8 @@ function Today({
   setTimer,
   running,
   setRunning,
+  phase,
+  setPhase,
   sessions,
   setModal,
   openStage,
@@ -589,7 +604,7 @@ function Today({
       <section className="sideCol">
         <GrowthStaircase count={growthCount} event={growthEvent} />
         <PomodoroCard
-          {...{ timer, setTimer, running, setRunning, sessions }}
+          {...{ timer, setTimer, running, setRunning, phase, setPhase, sessions }}
           tools={
             <button
               type="button"
