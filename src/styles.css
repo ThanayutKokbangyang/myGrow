@@ -274,6 +274,44 @@ html,body{overflow-y:auto!important;overflow-x:hidden}
 @keyframes musicPulse{to{transform:scale(1.28);opacity:.65}}
 @media(max-width:720px){.musicWidget{right:12px;bottom:80px}}
 
+/* Between 721px and 1100px the dashboard is a single-column grid, but the
+   unconditional `grid-template-rows:minmax(0,2fr) minmax(220px,1fr)` above
+   still applied. In an auto-height container that forces the room row to be
+   twice the height of the next row, leaving ~700-1000px of empty space under
+   the room. Size every row by its content instead. */
+@media(max-width:1100px){
+  .pixelDashboard{grid-template-rows:auto!important;align-items:start}
+  .pixelDashboard>*{min-height:0}
+}
+
+/* Mobile navigation. The @media(max-width:720px) block near the top turns the
+   rail into a bottom bar, but the later unconditional `.app>aside{width:64px}`
+   and `.app>aside button{width:48px;height:48px}` rules won, so the five
+   buttons overflowed a 64px-wide bar. Rebuild the bar here, after them. */
+@media(max-width:720px){
+  .app{display:block!important;grid-template-columns:1fr!important}
+  .app>aside{position:fixed;left:0;right:0;bottom:0;top:auto;z-index:16;
+    width:100%!important;height:auto;min-height:60px;padding:6px 4px calc(6px + env(safe-area-inset-bottom));
+    flex-direction:row;align-items:stretch;justify-content:space-around;gap:2px;
+    background:#08182d;border-top:3px solid #24405f;box-shadow:0 -4px 0 #020811}
+  .app>aside .brand,.app>aside .asideBottom{display:none!important}
+  .app>aside button{width:auto!important;height:auto!important;min-width:0;flex:1 1 0;
+    display:flex!important;flex-direction:column;align-items:center;justify-content:center;
+    gap:3px;padding:5px 2px!important;border-radius:10px}
+  .app>aside button .navPixelIcon{width:26px;height:26px}
+  .app>aside button.active{background:#1a2e4d}
+  .app>aside button.active .navPixelIcon{transform:none}
+  /* Labels sit under the icons instead of floating as hover tooltips. */
+  .app>aside button .navLabel{position:static;opacity:1;transform:none;background:none;
+    border:0;box-shadow:none;padding:0;font-size:9px;line-height:1.2;color:#aebdd1;
+    max-width:100%;overflow:hidden;text-overflow:ellipsis}
+  .app>aside button.active .navLabel{color:#ffe08a}
+  .app>aside .soundToggle{font-size:22px!important;line-height:1;min-height:0}
+  /* Keep the bar from covering the last card, and lift the music button above it. */
+  .app>main{padding-bottom:calc(78px + env(safe-area-inset-bottom))!important}
+  .musicWidget{bottom:calc(84px + env(safe-area-inset-bottom))}
+}
+
 /* Phone spacing. `.sideCol` still had `padding-bottom:70px` from the old
    bottom-nav clearance (main now handles that), which showed up as a dead
    70px band between the streak card and Weekly progress. Drop it and let the
