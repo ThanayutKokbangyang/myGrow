@@ -489,6 +489,7 @@ function App() {
           <PixelIcon name="bolt" /> {toast}
         </div>
       )}
+      <MusicPlayer />
     </div>
   );
 }
@@ -610,7 +611,7 @@ function Today({
         </div>
         <div className="focusRow">
           <div className="card focus">
-            <header className="focusHeading"><b>Focus time</b><MusicPlayer /></header>
+            <header className="focusHeading"><b>Focus time</b></header>
             <div>
               <span className="focusIcon">
                 <img src="/ui/focus.png" alt="" />
