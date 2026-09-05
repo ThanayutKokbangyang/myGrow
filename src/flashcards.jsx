@@ -72,9 +72,6 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
   const lock = useRef(false),
     mounted = useRef(true),
     loadRun = useRef(0);
-  // เก็บ local URLs ที่ต้อง revoke
-  const localUrls = useRef(new Set());
-  
   function accept(next) {
     const normalized = next.map(normalizeCard);
     remember(normalized);
@@ -117,9 +114,6 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
       loadRun.current++;
       clearInterval(timer);
       window.speechSynthesis?.cancel();
-      // revoke local URLs ที่ค้างอยู่
-      localUrls.current.forEach(url => URL.revokeObjectURL(url));
-      localUrls.current.clear();
     };
   }, []);
   async function mutate(action, payload) {
@@ -133,24 +127,10 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
       setNotice("ยืนยันว่าเป็นเท่ แล้วกดรายการเดิมอีกครั้ง");
       return null;
     }
-
     lock.current = true;
     setBusy(true);
-
     try {
-      // ⏱️ เพิ่ม timeout 30 วินาที
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(
-          () => reject(new Error("การบันทึกใช้เวลานานเกินไป กรุณาลองใหม่")),
-          30000
-        )
-      );
-
-      const result = await Promise.race([
-        writeFlashcards(action, payload),
-        timeoutPromise,
-      ]);
-
+      const result = await writeFlashcards(action, payload);
       if (!mounted.current) return null;
       return result;
     } catch (e) {
@@ -167,11 +147,11 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
   }
   const tags = useMemo(
     () => [...new Set(cards.map((c) => c.tag))].sort(),
-    [cards]
+    [cards],
   );
   const days = useMemo(
     () => groupByDay(cards).map(([key, list]) => [key, list.length]),
-    [cards]
+    [cards],
   );
   const dayLabel = (key) =>
     key === "unknown"
@@ -189,9 +169,9 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
           (day === "all" || dayKey(cardDay(c)) === day) &&
           `${c.word} ${c.meaning} ${c.tag}`
             .toLowerCase()
-            .includes(query.toLowerCase())
+            .includes(query.toLowerCase()),
       ),
-    [cards, tag, day, query]
+    [cards, tag, day, query],
   );
   const due = useMemo(() => dueCards(filtered, now), [filtered, now]);
   const queue = all ? filtered : due,
@@ -216,55 +196,30 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
   }
   async function answer(remembered) {
     if (!current || !flipped || busy || editor || ownerOpen) return;
-
-    // 📝 อัปเดต UI ทันที (optimistic)
-    const oldCards = [...cards];
-    const updatedCard = normalizeCard({
-      ...current,
-      level: remembered
-        ? Math.min(5, current.level + 1)
-        : Math.max(0, current.level - 1),
+    const result = await mutate("review", {
+      id: current.id,
+      remembered,
+      reviewId: crypto.randomUUID(),
     });
-    accept(cards.map((c) => (c.id === updatedCard.id ? updatedCard : c)));
-
+    if (!result) return;
+    const updated = normalizeCard(result.card);
+    accept(cards.map((c) => (c.id === updated.id ? updated : c)));
+    setNow(Date.now());
+    setStreak((v) => (remembered ? v + 1 : 0));
+    setNotice(
+      remembered
+        ? "จำได้แล้ว! บันทึกรอบทบทวนถัดไปแล้ว"
+        : "ไม่เป็นไร กลับมาทบทวนคำนี้ได้อีกใน 10 นาที",
+    );
+    if (remembered) onSuccess?.();
+    setIndex((i) =>
+      all
+        ? (i + 1) % Math.max(queue.length, 1)
+        : i % Math.max(queue.length - 1, 1),
+    );
     setFlipped(false);
     setGuess("");
     setGuessResult("");
-
-    try {
-      const result = await mutate("review", {
-        id: current.id,
-        remembered,
-        reviewId: crypto.randomUUID(),
-      });
-
-      if (!result) {
-        // ถ้าไม่สำเร็จ คืนค่ากลับ
-        accept(oldCards);
-        setNotice("บันทึกไม่สำเร็จ");
-        return;
-      }
-
-      // อัปเดตด้วยข้อมูลจริงจาก server
-      const saved = normalizeCard(result.card);
-      accept(cards.map((c) => (c.id === saved.id ? saved : c)));
-      setNow(Date.now());
-      setStreak((v) => (remembered ? v + 1 : 0));
-      setNotice(
-        remembered
-          ? "จำได้แล้ว! บันทึกรอบทบทวนถัดไปแล้ว"
-          : "ไม่เป็นไร กลับมาทบทวนคำนี้ได้อีกใน 10 นาที"
-      );
-      if (remembered) onSuccess?.();
-      setIndex((i) =>
-        all
-          ? (i + 1) % Math.max(queue.length, 1)
-          : i % Math.max(queue.length - 1, 1)
-      );
-    } catch (error) {
-      accept(oldCards);
-      setNotice("บันทึกไม่สำเร็จ: " + error.message);
-    }
   }
   useEffect(() => {
     const key = (e) => {
@@ -303,111 +258,25 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
       imageFileId: c.imageFileId || "",
     });
   }
-  async function saveCard(card, image, file) {
+  async function saveCard(card, image) {
     let data = { ...card };
-
-    // 📝 อัปเดต UI ทันที (optimistic)
-    const tempId = card.id || crypto.randomUUID();
-    
-    // 🔥 ถ้ามี file ให้สร้าง local URL โชว์ก่อนเลย
-    let tempImageUrl = null;
-    if (file) {
-      tempImageUrl = URL.createObjectURL(file);
-      localUrls.current.add(tempImageUrl); // เก็บไว้ revoke ทีหลัง
+    if (image) {
+      const uploaded = await mutate("uploadImage", { image });
+      if (!uploaded) return false;
+      data = {
+        ...data,
+        imageUrl: uploaded.imageUrl,
+        imageFileId: uploaded.imageFileId,
+      };
+      setEditor(data);
     }
-    
-    const tempCard = normalizeCard({ 
-      ...data, 
-      id: tempId,
-      imageUrl: tempImageUrl || data.imageUrl || "",
-      imageFileId: data.imageFileId || "",
-    });
-
-    // ถ้าเป็นคำใหม่ → เพิ่มเข้าไปเลย
-    if (!card.id) {
-      accept([tempCard, ...cards]);
-    } else {
-      // ถ้าแก้ไข → อัปเดตในลิสต์
-      accept(cards.map((c) => (c.id === tempId ? tempCard : c)));
-    }
+    const result = await mutate("upsert", { card: data });
+    if (!result) return false;
+    const saved = normalizeCard(result.card);
+    accept([saved, ...cards.filter((c) => c.id !== saved.id)]);
     setEditor(null);
-    setNotice("กำลังบันทึก...");
-
-    try {
-      // อัปโหลดรูป (ถ้ามี)
-      let uploaded = null;
-      if (image) {
-        uploaded = await mutate("uploadImage", { image });
-        if (!uploaded) {
-          // ถ้าอัปโหลดไม่สำเร็จ เอาออก
-          accept(cards);
-          setNotice("อัปโหลดรูปไม่สำเร็จ");
-          return false;
-        }
-        data = {
-          ...data,
-          imageUrl: uploaded.imageUrl,
-          imageFileId: uploaded.imageFileId,
-        };
-        // อัปเดต UI ด้วย URL จริงจาก server
-        const updatedCard = normalizeCard({ ...data, id: tempId });
-        accept(cards.map((c) => (c.id === tempId ? updatedCard : c)));
-        
-        // ลบ local URL ที่สร้างไว้
-        if (tempImageUrl) {
-          URL.revokeObjectURL(tempImageUrl);
-          localUrls.current.delete(tempImageUrl);
-        }
-      }
-
-      // บันทึกไป Sheet
-      const result = await mutate("upsert", { card: data });
-      if (!result) {
-        // ถ้าบันทึกไม่สำเร็จ คืนค่ากลับ
-        accept(cards);
-        setNotice("บันทึกไม่สำเร็จ");
-        return false;
-      }
-
-      // อัปเดตด้วยข้อมูลจริงจาก server
-      const saved = normalizeCard(result.card);
-      accept([saved, ...cards.filter((c) => c.id !== saved.id)]);
-      setNotice("บันทึกคำศัพท์แล้ว");
-      return true;
-    } catch (error) {
-      // ถ้า error คืนค่ากลับ
-      accept(cards);
-      if (tempImageUrl) {
-        URL.revokeObjectURL(tempImageUrl);
-        localUrls.current.delete(tempImageUrl);
-      }
-      setNotice("บันทึกไม่สำเร็จ: " + error.message);
-      return false;
-    }
-  }
-  async function deleteCard(id) {
-    if (busy || !id) return;
-
-    // 📝 ลบออกจาก UI ทันที (optimistic)
-    const oldCards = [...cards];
-    accept(cards.filter((c) => c.id !== id));
-    setRemoving(null);
-    setNotice("กำลังลบ...");
-
-    try {
-      const result = await mutate("delete", { id });
-
-      if (!result) {
-        accept(oldCards);
-        setNotice("ลบไม่สำเร็จ");
-        return;
-      }
-
-      setNotice("ลบคำศัพท์แล้ว");
-    } catch (error) {
-      accept(oldCards);
-      setNotice("ลบไม่สำเร็จ: " + error.message);
-    }
+    setNotice("บันทึกคำศัพท์แล้ว");
+    return true;
   }
   return (
     <section className="fcPage">
@@ -560,7 +429,7 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
                             setGuessResult(
                               cleanGuess(guess) === cleanGuess(current.word)
                                 ? "ถูกต้อง!"
-                                : "ลองจำคำเฉลยอีกครั้ง"
+                                : "ลองจำคำเฉลยอีกครั้ง",
                             );
                             setFlipped(true);
                           }}
@@ -690,7 +559,13 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
                         <>
                           <button
                             disabled={busy}
-                            onClick={() => deleteCard(c.id)}
+                            onClick={async () => {
+                              if (await mutate("delete", { id: c.id })) {
+                                accept(cards.filter((w) => w.id !== c.id));
+                                setRemoving(null);
+                                setNotice("ลบคำศัพท์แล้ว");
+                              }
+                            }}
                           >
                             ยืนยันลบ
                           </button>
@@ -719,7 +594,7 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
                 const url = URL.createObjectURL(
                   new Blob([JSON.stringify(cards, null, 2)], {
                     type: "application/json",
-                  })
+                  }),
                 );
                 const a = document.createElement("a");
                 a.href = url;
@@ -785,13 +660,7 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
               <div>
                 <i
                   style={{
-                    width: `${
-                      cards.length
-                        ? (cards.filter((c) => c.level === level).length /
-                            cards.length) *
-                          100
-                        : 0
-                    }%`,
+                    width: `${cards.length ? (cards.filter((c) => c.level === level).length / cards.length) * 100 : 0}%`,
                   }}
                 />
               </div>
@@ -815,27 +684,19 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
 }
 async function prepareImage(file) {
   if (file.size > 8e6) throw Error("เลือกรูปไม่เกิน 8 MB");
-
   const url = URL.createObjectURL(file);
   try {
     const img = new Image();
     img.src = url;
     await img.decode();
-
-    // ลดขนาดให้ไม่เกิน 500px
-    const MAX_SIZE = 500;
-    const ratio = Math.min(1, MAX_SIZE / Math.max(img.width, img.height));
-    const canvas = document.createElement("canvas");
+    const ratio = Math.min(1, 1000 / Math.max(img.width, img.height)),
+      canvas = document.createElement("canvas");
     canvas.width = Math.round(img.width * ratio);
     canvas.height = Math.round(img.height * ratio);
-
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
+    canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
     return {
-      data: canvas.toDataURL("image/jpeg", 0.7).split(",")[1],
+      data: canvas.toDataURL("image/jpeg", 0.78).split(",")[1],
       mimeType: "image/jpeg",
-      file: file, // 🔥 ส่ง file object กลับไปด้วย
     };
   } finally {
     URL.revokeObjectURL(url);
@@ -904,7 +765,7 @@ function CardEditor({ initial, tags = [], onClose, onSave, busy }) {
         if (e.key === "Tab") {
           const nodes = [
             ...dialog.current.querySelectorAll(
-              "button:not(:disabled),input:not(:disabled),textarea:not(:disabled)"
+              "button:not(:disabled),input:not(:disabled),textarea:not(:disabled)",
             ),
           ];
           if (e.shiftKey && document.activeElement === nodes[0]) {
@@ -929,9 +790,8 @@ function CardEditor({ initial, tags = [], onClose, onSave, busy }) {
           setSaving(true);
           setError("");
           try {
-            const result = file ? await prepareImage(file) : null;
-            const image = result ? { data: result.data, mimeType: result.mimeType } : null;
-            await onSave(draft, image, file); // ส่ง file ไปด้วย
+            const image = file ? await prepareImage(file) : null;
+            await onSave(draft, image);
           } catch (err) {
             setError(err.message);
           } finally {
@@ -940,15 +800,15 @@ function CardEditor({ initial, tags = [], onClose, onSave, busy }) {
         }}
       >
         <header>
-          <h2 id="fc-editor-title">บันทึกคำศัพท์</h2>
-         <button
+        <h2 id="fc-editor-title">บันทึกคำศัพท์</h2>
+        <button
             type="button"
             aria-label="ปิด"
             disabled={disabled}
             onClick={onClose}
-            >
+        >
             <Icon name="close" />
-            </button>
+        </button>
         </header>
         <fieldset disabled={disabled}>
           {[
