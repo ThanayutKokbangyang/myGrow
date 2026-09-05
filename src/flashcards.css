@@ -86,3 +86,10 @@
   .fcModal fieldset{grid-template-columns:1fr}
   .fcRecallImage{height:min(200px,34vh)}
 }
+
+/* Category is chosen from the tags already in use; "+ เพิ่มหมวดใหม่…" swaps in a
+   text box with a way back to the list. */
+.fcModal select{width:100%}
+.fcTagNew{display:flex;gap:8px;align-items:stretch;min-width:0}
+.fcTagNew input{flex:1;min-width:0}
+.fcPage .fcTagNew button{min-height:0;padding:6px 10px;font-size:13px;white-space:nowrap}
