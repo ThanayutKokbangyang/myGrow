@@ -61,3 +61,28 @@
   .fcCard{height:min(470px,66vh);margin:16px auto}
   .fcFace{padding:20px 14px}
 }
+
+/* ---- Bigger recall image, dated collection, two-column editor ------------ */
+
+/* The image was capped at 155px inside a 520px card, which read as a thumbnail
+   dropped on the page rather than the thing being asked about. */
+.fcRecallImage{margin:0 0 14px;width:100%;max-width:100%;max-height:none;height:min(250px,42vh);
+  object-fit:contain;border:3px solid #31495b;box-shadow:3px 3px #b99a5e;background:#fffdf4;
+  image-rendering:auto}
+.fcFront form{width:100%}
+
+/* Collection grouped by the day each word was saved. */
+.fcDayGroup{margin-bottom:18px}
+.fcDayGroup>header{display:flex;justify-content:space-between;align-items:baseline;gap:10px;
+  padding:0 2px 7px;margin-bottom:10px;border-bottom:3px dashed #cbb488}
+.fcDayGroup>header h3{margin:0;font:800 15px 'Noto Sans Thai',sans-serif;color:#4a3a1d}
+.fcDayGroup>header span{font:800 11px 'Courier New',monospace;letter-spacing:1px;color:#8e7647}
+
+/* The editor was eight stacked fields, so saving a word meant scrolling the
+   dialog. Pair the short ones up; the long ones and the buttons still span. */
+.fcModal fieldset{grid-template-columns:1fr 1fr;column-gap:16px}
+.fcModal fieldset>.fcWide{grid-column:1/-1}
+@media(max-width:640px){
+  .fcModal fieldset{grid-template-columns:1fr}
+  .fcRecallImage{height:min(200px,34vh)}
+}
