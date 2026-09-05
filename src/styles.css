@@ -110,3 +110,52 @@ html,body,#root,.app{width:100%;max-width:100%;overflow-x:hidden}.app{grid-templ
   .pixelDashboard .roomPanel{min-height:420px}
   .pixelDashboard .plan .task{min-height:46px}
 }
+/* Learning staircase beside Weekly progress, using the existing Tae sprite. */
+.pixelDashboard .growthSummary{grid-column:1;grid-row:2;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;min-width:0;min-height:260px}
+.pixelDashboard .growthSummary>.weekly{grid-column:auto;grid-row:auto;min-width:0;margin:0;padding:16px}
+.pixelDashboard .growthSummary .weekRow{grid-template-columns:30px 76px minmax(20px,1fr) 40px;gap:6px}
+.pixelDashboard .growthSummary .weekRow>b{font-size:13px}
+.pixelDashboard .growthCard{min-width:0;padding:16px;overflow:hidden;display:flex;flex-direction:column}
+.growthHeader{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.growthHeader h3{font-size:20px;margin:0;color:#142640}
+.growthHeader>strong{font-size:14px;background:#173b44;color:#fff0a6;padding:4px 8px;border:2px solid #294d50;white-space:nowrap}
+.growthHint{font-size:14px;color:#655536;margin:7px 0 0;line-height:1.5}
+.growthStage{position:relative;min-height:158px;margin:8px 0 0;border-bottom:3px solid #263b43;flex:1}
+.growthStep{position:absolute;bottom:0;width:calc(100% / 6 + 1px);border:2px solid #a5997e;border-bottom:0;background:#e1d6b9;box-shadow:inset 0 4px #f8edcf}
+.growthStep.reached{background:#4a8d80;border-color:#234c48;box-shadow:inset 0 5px #95d8ae}
+.growthStep.current{background:#277565;box-shadow:inset 0 5px #f8d86c}
+.growthStep span{display:block;text-align:center;font:700 12px/1.7 'Courier New',monospace;color:#514938;padding-top:4px}
+.growthStep.reached span{color:#fff5d5}
+.growthStep:first-child span{padding:0;line-height:1}
+.growthCharacter{position:absolute;z-index:2;width:64px;height:64px;left:var(--to-left);bottom:var(--to-bottom);transform:translateX(-50%);pointer-events:none}
+.growthCharacter img{display:block;width:100%;height:100%;object-fit:contain;image-rendering:pixelated;filter:drop-shadow(2px 3px 0 #20352c55)}
+.growthCharacter.jumping{animation:growthLeap .65s cubic-bezier(.3,.1,.5,1) both}
+.growthCharacter.jumping img{animation:growthHappy .38s ease-in-out .65s 3}
+.growthCheer{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);padding:4px 7px;background:#173b44;border:2px solid #f5ca64;color:#fff3b5;font-size:14px;font-weight:700;white-space:nowrap;opacity:0}
+.growthCharacter.jumping .growthCheer{animation:growthCheer 2.2s ease both}
+.growthStatus{font-size:14px;color:#285d51;font-weight:700;margin:9px 0 0;line-height:1.5;min-height:21px}
+@keyframes growthLeap{0%{left:var(--from-left);bottom:var(--from-bottom)}50%{bottom:calc(var(--to-bottom) + 34px)}100%{left:var(--to-left);bottom:var(--to-bottom)}}
+@keyframes growthHappy{0%,100%{transform:translateY(0) rotate(0)}40%{transform:translateY(-13px) rotate(-9deg)}75%{transform:translateY(-4px) rotate(9deg)}}
+@keyframes growthCheer{0%,25%{opacity:0}35%,85%{opacity:1}100%{opacity:0}}
+@media(min-width:1101px){.pixelDashboard{grid-template-rows:minmax(420px,2fr) minmax(290px,1fr)}}
+@media(max-width:1100px){.pixelDashboard .growthSummary{grid-row:3}}
+@media(max-width:1350px) and (min-width:1101px),(max-width:620px){.pixelDashboard .growthSummary{grid-template-columns:minmax(0,1fr)}.pixelDashboard .growthCard{min-height:270px}}
+@media(prefers-reduced-motion:reduce){.growthCharacter.jumping,.growthCharacter.jumping img{animation:none}.growthCharacter.jumping .growthCheer{animation:none;opacity:1}}
+
+@media(min-width:1101px) and (max-width:1350px){.app>main{overflow-y:auto}.pixelDashboard{height:auto;min-height:calc(100dvh - 20px);grid-template-rows:minmax(420px,auto) auto}}
+
+/* Hand-drawn platform and six genuine character poses. */
+.pixelDashboard .growthCard{min-height:310px}
+.growthStage{min-height:196px;border-bottom:0}
+.growthStep,.growthStep.reached,.growthStep.current{border:0;background:none;box-shadow:none;overflow:hidden;width:calc(100% / 6 + 2px)}
+.growthStepArt{position:absolute;width:112%;height:132%;max-width:none;left:-6%;top:-19%;image-rendering:pixelated;pointer-events:none}
+.growthStep:not(.reached) .growthStepArt{filter:grayscale(.8);opacity:.4}
+.growthStep span{position:relative;z-index:1;padding-top:12px!important;font-size:13px;line-height:1.2!important;color:#fff8d8!important;text-shadow:1px 1px #162b2c,-1px -1px #162b2c}
+.growthStep.current span{color:#ffe07b!important}
+.growthCharacter{width:56px;height:80px}
+.growthPose{position:absolute;left:50%;bottom:0;transform:translateX(-50%);background-image:url('/growth/tae-jump-atlas.png');background-repeat:no-repeat;image-rendering:pixelated;filter:drop-shadow(1px 2px 0 #20352c44)}
+.growthCharacter.jumping{animation:growthSpriteLeap 2.2s linear both}
+.growthCharacter.jumping .growthPose{animation:growthSpriteCheer .54s ease-in-out .88s 2}
+@keyframes growthSpriteLeap{0%,8%{left:var(--from-left);bottom:var(--from-bottom)}20%{left:calc((var(--from-left) + var(--to-left)) / 2);bottom:calc(var(--to-bottom) + 38px)}32%,100%{left:var(--to-left);bottom:var(--to-bottom)}}
+@keyframes growthSpriteCheer{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-7px)}}
+@media(prefers-reduced-motion:reduce){.growthCharacter.jumping,.growthCharacter.jumping .growthPose{animation:none}}

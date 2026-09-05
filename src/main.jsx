@@ -145,6 +145,7 @@ function App() {
   const [verify, setVerify] = useState(null);
   const [toast, setToast] = useState("");
   const [celebrating, setCelebrating] = useState(false);
+  const [growthEvent, setGrowthEvent] = useState(null);
   const [pos, setPos] = useState({ x: 48, y: 52 });
   const [direction, setDirection] = useState("down");
   const [walking, setWalking] = useState(false);
@@ -367,22 +368,17 @@ function App() {
       after: Number(data.after),
       difficulty: Number(data.difficulty),
     };
-    // แสดงผลทันที (optimistic) แล้วค่อยซิงค์เบื้องหลัง
-    setLogs((v) => [item, ...v.filter((x) => String(x.id) !== String(item.id))]);
-    setModal(null);
-    setCelebrating(true);
-    clearTimeout(celebrateTimer.current);
-    celebrateTimer.current = setTimeout(() => setCelebrating(false), 2400);
-    notify(`บันทึกแล้ว +${item.minutes * 2} XP`);
     try {
       const result = await createActivity(item);
-      if (result.item)
-        setLogs((v) =>
-          v.map((x) => (String(x.id) === String(item.id) ? result.item : x)),
-        );
+      const saved = result.item || item;
+      setLogs((v) => [saved, ...v.filter((x) => String(x.id) !== String(saved.id))]);
+      setModal(null);
+      setGrowthEvent(item.id);
+      setCelebrating(true);
+      clearTimeout(celebrateTimer.current);
+      celebrateTimer.current = setTimeout(() => setCelebrating(false), 2400);
+      notify(`บันทึกแล้ว +${item.minutes * 2} XP · ขึ้นอีก 1 ขั้น!`);
     } catch (error) {
-      // ถอนรายการที่เพิ่งเพิ่มออกถ้าซิงค์ไม่สำเร็จ
-      setLogs((v) => v.filter((x) => String(x.id) !== String(item.id)));
       if (error.status === 401) {
         clearOwnerToken();
         setVerify({ type: "save", data });
@@ -477,6 +473,8 @@ function App() {
           <Today
             {...{
               todayLogs,
+              growthCount: logs.length,
+              growthEvent,
               minutes,
               xp,
               streak,
@@ -529,6 +527,8 @@ function SkillArt({ skill }) {
 
 function Today({
   todayLogs,
+  growthCount,
+  growthEvent,
   minutes,
   xp,
   streak,
@@ -680,26 +680,29 @@ function Today({
           </div>
         </div>
       </section>
-      <section className="card weekly">
-        <h3>Weekly progress</h3>
-        {Object.entries(SKILLS).map(([k, s]) => (
-          <div className="weekRow" key={k}>
-            <span style={{ background: s.color }}>
-              <SkillArt skill={k} />
-            </span>
-            <b>{s.label}</b>
-            <div className="bar">
-              <i
-                style={{
-                  background: s.color,
-                  width: `${Math.min(100, totals[k] / 1.2)}%`,
-                }}
-              />
+      <div className="growthSummary">
+        <section className="card weekly">
+          <h3>Weekly progress</h3>
+          {Object.entries(SKILLS).map(([k, s]) => (
+            <div className="weekRow" key={k}>
+              <span style={{ background: s.color }}>
+                <SkillArt skill={k} />
+              </span>
+              <b>{s.label}</b>
+              <div className="bar">
+                <i
+                  style={{
+                    background: s.color,
+                    width: `${Math.min(100, totals[k] / 1.2)}%`,
+                  }}
+                />
+              </div>
+              <strong>{Math.min(100, Math.round(totals[k] / 1.2))}%</strong>
             </div>
-            <strong>{Math.min(100, Math.round(totals[k] / 1.2))}%</strong>
-          </div>
-        ))}
-      </section>
+          ))}
+        </section>
+        <GrowthStaircase count={growthCount} event={growthEvent} />
+      </div>
       <section className="card streakCard">
         <PixelIcon name="flame" />
         <h2>{streak} day streak</h2>
@@ -713,6 +716,77 @@ function Today({
     </div>
   );
 }
+// Pixel bounds in the transparent atlas; preserve one scale across all six poses.
+const GROWTH_FRAMES = [
+  [89, 150, 357, 611], [497, 247, 770, 611], [869, 89, 1188, 609],
+  [70, 819, 394, 1178], [471, 704, 785, 1172], [922, 702, 1219, 1172],
+];
+function GrowthStaircase({ count, event }) {
+  const [jumping, setJumping] = useState(false);
+  const [frame, setFrame] = useState(0);
+  const lastEvent = useRef(event);
+  useEffect(() => {
+    if (event === lastEvent.current) return;
+    lastEvent.current = event;
+    if (!event) return;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    setJumping(true);
+    setFrame(reducedMotion ? 5 : 1);
+    const sequence = reducedMotion ? [] : [
+      [180, 2], [700, 3], [880, 4], [1150, 5], [1420, 4], [1690, 5],
+    ];
+    const timers = sequence.map(([delay, pose]) => setTimeout(() => setFrame(pose), delay));
+    timers.push(setTimeout(() => { setJumping(false); setFrame(0); }, 2200));
+    return () => timers.forEach(clearTimeout);
+  }, [event]);
+  const [sx, sy, ex, ey] = GROWTH_FRAMES[frame];
+  const scale = .15;
+  // Keep the current step in view even after hundreds of activities.
+  const start = Math.max(0, count - 3);
+  const slot = count - start;
+  return (
+    <section className="card growthCard" aria-labelledby="growth-title">
+      <header className="growthHeader">
+        <h3 id="growth-title">ขั้นการพัฒนา</h3>
+        <strong>ขั้นที่ {count}</strong>
+      </header>
+      <p className="growthHint">เรียนจบและบันทึก 1 กิจกรรม = 1 ขั้น</p>
+      <div className="growthStage" aria-hidden="true">
+        {Array.from({ length: 6 }, (_, i) => (
+          <div
+            key={i}
+            className={`growthStep ${start + i <= count ? "reached" : ""} ${i === slot ? "current" : ""}`}
+            style={{ left: `${i * 100 / 6}%`, height: `${30 + i * 18}px` }}
+          >
+            <img className="growthStepArt" src="/growth/grass-stone-step.png" alt="" />
+            <span>{start + i}</span>
+          </div>
+        ))}
+        <div
+          key={event || "rest"}
+          className={`growthCharacter ${jumping ? "jumping" : ""}`}
+          style={{
+            "--from-left": `${(Math.max(0, slot - 1) + .5) * 100 / 6}%`,
+            "--to-left": `${(slot + .5) * 100 / 6}%`,
+            "--from-bottom": `${25 + Math.max(0, slot - 1) * 18}px`,
+            "--to-bottom": `${25 + slot * 18}px`,
+          }}
+        >
+          <span className="growthCheer">เย้! +1 ขั้น</span>
+          <span className="growthPose" style={{
+            width: `${(ex - sx) * scale}px`, height: `${(ey - sy) * scale}px`,
+            backgroundSize: `${1254 * scale}px ${1254 * scale}px`,
+            backgroundPosition: `${-sx * scale}px ${-sy * scale}px`,
+          }} />
+        </div>
+      </div>
+      <p className="growthStatus" role="status">
+        {jumping ? "เก่งมาก! ก้าวไปอีกขั้นแล้ว" : count ? `เรียนรู้แล้ว ${count} กิจกรรม · ไปต่อทีละขั้น` : "ก้าวแรกเริ่มจากกิจกรรมแรกของเรา"}
+      </p>
+    </section>
+  );
+}
+
 function Station({ code, label, desk, color, onClick, pos }) {
   return (
     <button
