@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
+import Flashcards from "./flashcards";
 import {contains,roomGeometry} from "./room-geometry";
 import {MusicPlayer, SmallWins, unlockSound, woodStep, winSound} from "./comfort";
 import {FocusStage} from "./focus-stage";
@@ -421,6 +422,7 @@ function App() {
           ["history", "/ui/nav-history.png", "ประวัติ"],
           ["progress", "/ui/nav-progress.png", "พัฒนาการ"],
           ["wins", "/ui/pixel/trophy.svg", "ความสำเร็จเล็ก ๆ"],
+          ["flashcards", "/ui/pixel/book.png", "Flashcards"],
         ].map(([k, asset, l]) => (
           <button
             className={view === k ? "active" : ""}
@@ -472,6 +474,8 @@ function App() {
               openStage: () => setStage(true),
             }}
           />
+        ) : view === "flashcards" ? (
+          <Flashcards onRequireOwner={()=>setVerify({type:"flashcards"})} onSuccess={celebrateSound} ownerOpen={Boolean(verify)} />
         ) : view === "wins" ? (
           <SmallWins onSuccess={celebrateSound} onRequireOwner={()=>setVerify({type:"wins"})} />
         ) : view === "history" ? (

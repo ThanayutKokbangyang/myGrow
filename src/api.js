@@ -19,3 +19,6 @@ export async function deleteActivity(id){return api('/api/activities',{method:'P
 
 export async function loadWins(){const r=await api('/api/wins');return r.items||[]}
 export async function applyWins(changes){return api('/api/wins',{method:'POST',body:JSON.stringify({changes})})}
+
+export async function loadFlashcards(){const result=await api('/api/flashcards');return result.cards||[]}
+export async function writeFlashcards(action,payload={}){return api('/api/flashcards',{method:'POST',body:JSON.stringify({action,...payload})})}

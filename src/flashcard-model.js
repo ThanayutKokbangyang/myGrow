@@ -1,0 +1,5 @@
+export const DAY=86400000;
+export function normalizeCard(c){if(!c||c.id===undefined||!String(c.word||'').trim()||!String(c.meaning||'').trim())throw Error('คำศัพท์ต้องมี id คำศัพท์ และคำแปล');return {id:String(c.id),word:String(c.word).trim(),meaning:String(c.meaning).trim(),phonetic:String(c.phonetic||''),example:String(c.example||''),translation:String(c.translation||''),tag:String(c.tag||'General'),imageUrl:/^https:\/\//.test(c.imageUrl||'')?String(c.imageUrl):'',imageFileId:String(c.imageFileId||''),level:Math.min(5,Math.max(0,Math.floor(Number(c.level)||0))),due:Math.max(0,Number(c.due)||0),correct:Math.max(0,Math.floor(Number(c.correct)||0)),attempts:Math.max(0,Math.floor(Number(c.attempts)||0))};}
+export const cleanGuess=s=>s.normalize('NFKC').trim().toLowerCase().replace(/\s+/g,' ');
+export function reviewStats(cards){const attempts=cards.reduce((n,c)=>n+c.attempts,0),correct=cards.reduce((n,c)=>n+c.correct,0);return {attempts,accuracy:attempts?Math.round(correct/attempts*100):0,mastered:cards.filter(c=>c.level>=4).length};}
+export function dueCards(cards,now=Date.now()){return cards.filter(c=>c.due<=now).sort((a,b)=>a.due-b.due);}
