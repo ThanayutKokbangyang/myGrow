@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import "./styles.css";
 import Flashcards from "./flashcards";
 import {contains,roomGeometry} from "./room-geometry";
+import {countStreak, dayKey, formatDayTH} from "./day";
 import {MusicPlayer, SmallWins, unlockSound, woodStep, winSound, smallWinSound} from "./comfort";
 import {FocusStage} from "./focus-stage";
 import {Goals} from "./goals";
@@ -57,7 +58,10 @@ const EMPTY = {
   problem: "",
   next: "",
 };
-const dateKey = (d) => new Date(d).toLocaleDateString("th-TH");
+// Days start at 05:00 (see day.js), so a session logged at 01:00 still counts
+// as the day before rather than starting a fresh one.
+const dateKey = (d) => dayKey(new Date(d));
+const dateLabel = (key) => formatDayTH(key, { day: "numeric", month: "short", year: "numeric" });
 function findWalkPath(start,end,hitsTable){
   const step=1,minX=3,maxX=97,minY=12,maxY=94;
   const cols=Math.floor((maxX-minX)/step)+1,rows=Math.floor((maxY-minY)/step)+1;
@@ -257,7 +261,11 @@ function App() {
   const minutes = todayLogs.reduce((a, b) => a + Number(b.minutes), 0);
   const xp =
     logs.reduce((a, b) => a + Number(b.minutes) * 2, 0) + sessions * 25;
-  const streak = new Set(logs.map((x) => dateKey(x.date))).size;
+  // Consecutive days, not "days ever logged": a gap resets it. Today being
+  // empty so far does not break the run -- only a whole missed day does.
+  const loggedDays = new Set(logs.map((x) => dateKey(x.date)));
+  const streak = countStreak(loggedDays, today);
+  const activeDays = loggedDays.size;
   const notify = (t) => {
     setToast(t);
     setTimeout(() => setToast(""), 2400);
@@ -501,7 +509,7 @@ function App() {
         ) : view === "history" ? (
           <HistoryView logs={logs} remove={remove} />
         ) : (
-          <Progress logs={logs} xp={xp} streak={streak} />
+          <Progress logs={logs} xp={xp} streak={streak} activeDays={activeDays} />
         )}
       </main>
       {modal && (
@@ -1082,7 +1090,7 @@ function HistoryView({ logs, remove }) {
               <header>
                 <div>
                   <small>ACTIVITY GROUP</small>
-                  <h2>{day === dateKey(new Date()) ? "วันนี้" : day}</h2>
+                  <h2>{day === dateKey(new Date()) ? "วันนี้" : dateLabel(day)}</h2>
                 </div>
                 <span>
                   {items.length} กิจกรรม ·{" "}
@@ -1155,7 +1163,7 @@ function HistoryView({ logs, remove }) {
   );
 }
 
-function Progress({ logs, xp, streak }) {
+function Progress({ logs, xp, streak, activeDays }) {
   const totals = useMemo(
     () =>
       Object.keys(SKILLS).reduce(
@@ -1196,7 +1204,13 @@ function Progress({ logs, xp, streak }) {
         <div>
           <PixelIcon name="flame" />
           <span>
-            <b>{streak}</b>วันที่ลงมือ
+            <b>{streak}</b>วันติดต่อกัน
+          </span>
+        </div>
+        <div>
+          <PixelIcon name="sprout" />
+          <span>
+            <b>{activeDays}</b>วันที่ลงมือทั้งหมด
           </span>
         </div>
         <div>

@@ -1,3 +1,5 @@
+import {dayKey,dayStart} from './day';
+
 // Goals and the plan steps under them share one Sheet tab and one list here:
 // a row with an empty goalId is a goal, anything else is a step of that goal.
 
@@ -22,8 +24,7 @@ export const planIconSrc=name=>`/goals/plan/${PLAN_ICONS.some(i=>i[0]===name)?na
 export const TERMS=[['long','ระยะยาว'],['short','ระยะสั้น']];
 export const GOAL_STATUS=[['active','กำลังทำ'],['paused','พักไว้ก่อน'],['done','สำเร็จแล้ว']];
 
-export const dayKey=(d=new Date())=>
- `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+export {dayKey};
 export const formatDay=key=>{
  if(!/^\d{4}-\d{2}-\d{2}$/.test(key||''))return '';
  const [y,m,d]=key.split('-').map(Number);
@@ -32,8 +33,8 @@ export const formatDay=key=>{
 // Positive = days left, negative = overdue, null = no date set.
 export const daysLeft=key=>{
  if(!/^\d{4}-\d{2}-\d{2}$/.test(key||''))return null;
- const [y,m,d]=key.split('-').map(Number),target=new Date(y,m-1,d,12),now=new Date();
- return Math.round((target-new Date(now.getFullYear(),now.getMonth(),now.getDate(),12))/86400000);
+ const [y,m,d]=key.split('-').map(Number),target=new Date(y,m-1,d,12),today=dayStart();
+ return Math.round((target-new Date(today.getFullYear(),today.getMonth(),today.getDate(),12))/86400000);
 };
 
 const text=(v,max)=>String(v??'').slice(0,max);
