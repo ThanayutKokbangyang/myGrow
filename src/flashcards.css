@@ -105,3 +105,20 @@
   width: 24px;
   height: 24px;
 }
+
+/* Active-recall modes and per-session progress. */
+.fcSessionProgress{height:13px;border:2px solid #31495b;background:#ddcfab;margin:0 0 14px;overflow:hidden}
+.fcSessionProgress i{display:block;height:100%;background:#439182;transition:width .25s ease}
+.fcModeFallback{margin:0 auto 10px;max-width:620px;text-align:center;color:#8a641e;font-size:13px}
+.fcRecallPrompt{width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;min-height:145px;padding-top:24px}
+.fcRecallPrompt>small{font:bold 12px 'Courier New',monospace;letter-spacing:1px;color:#8d7446}
+.fcRecallPrompt>strong{font-size:clamp(25px,3.8vw,40px);line-height:1.45;overflow-wrap:anywhere}
+.fcRecallPrompt .fcCloze{font-size:clamp(19px,2.8vw,30px);font-weight:700}
+.fcChoices{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:min(560px,100%);margin-top:8px}
+.fcPage .fcChoices button{background:#fff8df;text-align:left;justify-content:flex-start;white-space:normal;overflow-wrap:anywhere}
+.fcPage .fcChoices button:hover{background:#e8f2df}
+.fcCorrect{color:#27735d!important;font-weight:800!important}
+.fcWrong{color:#a33f32!important;font-weight:800!important}
+.fcStats{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media(max-width:640px){.fcChoices{grid-template-columns:1fr}.fcRecallPrompt{min-height:110px}.fcStats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(prefers-reduced-motion:reduce){.fcSessionProgress i{transition:none}}
