@@ -16,6 +16,7 @@ import {
   clozeSentence,
   meaningChoices,
 } from "./flashcard-model";
+import { dayKey as currentDayKey } from "./day";
 import "./flashcards.css";
 const REVIEW_MODES = [
   ["classic", "คำศัพท์ → ความหมาย"],
@@ -91,7 +92,8 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
     [guessResult, setGuessResult] = useState("");
   const lock = useRef(false),
     mounted = useRef(true),
-    loadRun = useRef(0);
+    loadRun = useRef(0),
+    studyDay = useRef(currentDayKey());
   function accept(next) {
     const normalized = next.map(normalizeCard);
     remember(normalized);
@@ -128,11 +130,28 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
     mounted.current = true;
     // Fresh data from an earlier visit: render it and stay quiet.
     if (!(stored && Date.now() - store.at < FRESH_MS)) refresh(!stored);
-    const timer = setInterval(() => setNow(Date.now()), 30000);
+    const tick = () => {
+      setNow(Date.now());
+      const nextDay = currentDayKey();
+      if (studyDay.current !== nextDay) {
+        studyDay.current = nextDay;
+        setAll(false);
+        setIndex(0);
+        setFlipped(false);
+        setGuess("");
+        setGuessResult("");
+        setStreak(0);
+        setSessionReviewed(0);
+        setNotice("เริ่มวันใหม่แล้ว · รอบประจำวันรีเซ็ตเวลา 05:00");
+      }
+    };
+    const timer = setInterval(tick, 30000);
+    window.addEventListener("focus", tick);
     return () => {
       mounted.current = false;
       loadRun.current++;
       clearInterval(timer);
+      window.removeEventListener("focus", tick);
       window.speechSynthesis?.cancel();
     };
   }, []);
