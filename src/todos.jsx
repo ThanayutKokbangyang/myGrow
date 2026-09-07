@@ -4,8 +4,10 @@ import {applyTodos,loadTodos} from './api';
 
 const localDay=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
 const newId=()=>`todo-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
-const blank=()=>({id:newId(),date:localDay(),title:'',detail:'',category:'coding',priority:'normal',done:false,createdAt:new Date().toISOString()});
-const CATEGORIES={coding:{label:'Coding',icon:'⌘'},english:{label:'English',icon:'A'},math:{label:'Math',icon:'∑'},life:{label:'ชีวิต',icon:'⌂'}};
+const blank=()=>({id:newId(),date:localDay(),title:'',detail:'',category:'life',priority:'normal',done:false,createdAt:new Date().toISOString()});
+const PRIORITIES={high:{label:'สำคัญ',mark:'!!'},normal:{label:'ทั่วไป',mark:'!'}};
+const priorityOf=value=>value==='high'?'high':'normal';
+const priorityWeight=value=>value==='high'?2:1;
 const thaiDate=()=>new Intl.DateTimeFormat('th-TH',{weekday:'long',day:'numeric',month:'long'}).format(new Date());
 
 function Composer({onSave,busy}){
@@ -13,20 +15,21 @@ function Composer({onSave,busy}){
  const set=(key,value)=>setForm(item=>({...item,[key]:value}));
  const submit=e=>{e.preventDefault();if(!form.title.trim()||busy)return;onSave({...form,title:form.title.trim(),detail:form.detail.trim()});setForm(blank());setMore(false)};
  return <form className="todoComposer" onSubmit={submit}>
-  <div className="todoComposerHead"><span>+</span><div><h2>เพิ่มภารกิจ</h2><p>หนึ่งงานที่ชัดเจน เริ่มได้ง่ายกว่า</p></div></div>
-  <label className="todoTitleField"><span>วันนี้จะทำอะไร?</span><input value={form.title} maxLength={160} placeholder="เช่น ทำโจทย์ Two Sum ให้จบ" onChange={e=>set('title',e.target.value)} required/></label>
-  <div className="todoQuickPicks" aria-label="เลือกหมวดงาน">{Object.entries(CATEGORIES).map(([key,item])=><button type="button" key={key} className={form.category===key?'active':''} onClick={()=>set('category',key)}><i>{item.icon}</i>{item.label}</button>)}</div>
-  <button type="button" className="todoMore" aria-expanded={more} onClick={()=>setMore(value=>!value)}>{more?'− ซ่อนรายละเอียด':'+ รายละเอียดและความสำคัญ'}</button>
-  {more&&<div className="todoMoreFields"><label><span>รายละเอียด</span><textarea rows="3" value={form.detail} maxLength={400} placeholder="เขียนขั้นตอนสั้น ๆ เพื่อให้เริ่มได้ทันที" onChange={e=>set('detail',e.target.value)}/></label><label className="todoPrioritySwitch"><input type="checkbox" checked={form.priority==='high'} onChange={e=>set('priority',e.target.checked?'high':'normal')}/><span><b>งานสำคัญ</b><small>ปักหมุดไว้ด้านบน</small></span></label></div>}
+  <div className="todoComposerHead"><span>+</span><div><h2>เพิ่มสิ่งที่ต้องทำ</h2><p>งานอะไรก็ได้ที่เราอยากทำวันนี้</p></div></div>
+  <label className="todoTitleField"><span>วันนี้จะทำอะไร?</span><input value={form.title} maxLength={160} placeholder="เช่น จ่ายค่าไฟ หรืออ่านหนังสือ" onChange={e=>set('title',e.target.value)} required/></label>
+  <span className="todoPriorityLabel">จัดลำดับความสำคัญ</span>
+  <div className="todoQuickPicks" aria-label="เลือกระดับความสำคัญ">{Object.entries(PRIORITIES).map(([key,item])=><button type="button" key={key} className={`${key} ${form.priority===key?'active':''}`} onClick={()=>set('priority',key)}><i>{item.mark}</i>{item.label}</button>)}</div>
+  <button type="button" className="todoMore" aria-expanded={more} onClick={()=>setMore(value=>!value)}>{more?'− ซ่อนรายละเอียด':'+ เพิ่มรายละเอียด'}</button>
+  {more&&<div className="todoMoreFields"><label><span>รายละเอียด</span><textarea rows="3" value={form.detail} maxLength={400} placeholder="เขียนรายละเอียดเพิ่มเติมได้ตามต้องการ" onChange={e=>set('detail',e.target.value)}/></label></div>}
   <button className="todoAdd" disabled={!form.title.trim()||busy}>{busy?'กำลังบันทึก…':'เพิ่มลงภารกิจวันนี้'} <span>→</span></button>
  </form>;
 }
 
 function Task({item,onToggle,onRemove,busy}){
- const category=CATEGORIES[item.category]||CATEGORIES.life;
- return <article className={`questCard ${item.done?'isDone':''} ${item.priority==='high'?'isHigh':''}`}>
+ const priority=priorityOf(item.priority),meta=PRIORITIES[priority];
+ return <article className={`questCard ${item.done?'isDone':''} priority-${priority}`}>
   <button className="questCheck" onClick={()=>onToggle(item)} disabled={busy} aria-label={item.done?'เปลี่ยนเป็นยังไม่เสร็จ':'ทำภารกิจนี้เสร็จแล้ว'}><span>{item.done?'✓':''}</span></button>
-  <div className="questBody"><div className="questMeta"><span className={`questCategory ${item.category}`}><i>{category.icon}</i>{category.label}</span>{item.priority==='high'&&<span className="questImportant">★ สำคัญ</span>}</div><h3>{item.title}</h3>{item.detail&&<p>{item.detail}</p>}</div>
+  <div className="questBody"><div className="questMeta"><span className={`questPriority ${priority}`}><i>{meta.mark}</i>{meta.label}</span></div><h3>{item.title}</h3>{item.detail&&<p>{item.detail}</p>}</div>
   <button className="questDelete" onClick={()=>onRemove(item)} disabled={busy} aria-label={`ลบ ${item.title}`}>×</button>
  </article>;
 }
@@ -35,7 +38,7 @@ export function Todos({onRequireOwner,onSuccess}){
  const [items,setItems]=useState([]),[ready,setReady]=useState(false),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[filter,setFilter]=useState('open'),[celebrate,setCelebrate]=useState(0);
  useEffect(()=>{let live=true;loadTodos().then(data=>{if(live){setItems(data);setReady(true)}}).catch(error=>{if(live)setMessage(error.message)});return()=>{live=false}},[]);
  const current=useMemo(()=>items.filter(item=>item.date===localDay()),[items]);
- const ordered=useMemo(()=>[...current].sort((a,b)=>Number(a.done)-Number(b.done)||Number(b.priority==='high')-Number(a.priority==='high')||String(a.createdAt).localeCompare(String(b.createdAt))),[current]);
+ const ordered=useMemo(()=>[...current].sort((a,b)=>Number(a.done)-Number(b.done)||priorityWeight(b.priority)-priorityWeight(a.priority)||String(a.createdAt).localeCompare(String(b.createdAt))),[current]);
  const shown=ordered.filter(item=>filter==='all'||filter==='done'&&item.done||filter==='open'&&!item.done);
  const completed=current.filter(item=>item.done).length;
  const percent=current.length?Math.round(completed/current.length*100):0;
@@ -56,7 +59,7 @@ export function Todos({onRequireOwner,onSuccess}){
     <div className="questList">{shown.map(item=><Task key={item.id} item={item} onToggle={toggle} onRemove={remove} busy={busy}/>)}</div>
     {!shown.length&&<div className="questEmpty"><div>{filter==='done'?'☆':'✓'}</div><h3>{current.length&&filter==='open'?'เก็บครบทุกภารกิจแล้ว!':filter==='done'?'ยังไม่มีงานที่ทำเสร็จ':'ยังไม่มีภารกิจวันนี้'}</h3><p>{filter==='open'?'พักได้อย่างสบายใจ หรือเพิ่มเป้าหมายใหม่ด้านขวา':'เพิ่มงานแรกจากช่องด้านขวา แล้วค่อยเริ่มทีละข้อ'}</p></div>}
    </div>
-   <div className="todoSide"><Composer onSave={add} busy={busy}/><div className="todoDailyTip"><span>✦</span><div><b>กฎของวันนี้</b><p>เลือกงานสำคัญที่สุดหนึ่งข้อ ทำให้เสร็จก่อน แล้วค่อยไปข้อถัดไป</p></div></div></div>
+   <div className="todoSide"><Composer onSave={add} busy={busy}/><div className="todoDailyTip"><span>✦</span><div><b>เรียงให้อัตโนมัติ</b><p>งานสำคัญจะถูกจัดไว้บนสุด ตามด้วยงานทั่วไป</p></div></div></div>
   </div>
  </section>;
 }
