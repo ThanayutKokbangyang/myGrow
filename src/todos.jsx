@@ -47,16 +47,16 @@ export function Todos({onRequireOwner,onSuccess}){
   <header className="todoHero">
    <div className="todoHeroCopy"><div className="todoDate"><span>DAILY QUEST</span><i>{thaiDate()}</i></div><h1>วันนี้เรา<br/><em>จะทำอะไรบ้าง?</em></h1><p>ไม่ต้องทำทุกอย่างพร้อมกัน เลือกหนึ่งข้อ แล้วเริ่มจากตรงนั้น</p><div className={`todoCloud ${ready?'online':''}`}><span/>{ready?'บันทึกกับ Google Sheets แล้ว':'กำลังเชื่อมต่อ Google Sheets…'}</div></div>
    <div className={`todoMascot ${celebrate?'celebrate':''}`} key={celebrate||'idle'}><span className="todoSpark s1">✦</span><span className="todoSpark s2">✦</span><span className="todoSpark s3">✦</span><img src="/todos/tae-checklist.png" alt="เท่กำลังเช็กรายการภารกิจ"/></div>
-   <div className="todoScore" style={{'--progress':`${percent*3.6}deg`}}><div><strong>{percent}%</strong><span>สำเร็จวันนี้</span></div></div>
+   <div className="todoScore" style={{'--progress':`${percent}%`}}><div><strong>{percent}%</strong><span>สำเร็จวันนี้</span></div></div>
   </header>
   <div className="todoWorkspace">
-   <main className="questPanel">
+   <div className="questPanel">
     <div className="questHeader"><div><span className="questKicker">TODAY'S LIST</span><h2>ภารกิจของเรา <b>{current.length}</b></h2></div><div className="questTabs">{[['open','ต้องทำ'],['done','เสร็จแล้ว'],['all','ทั้งหมด']].map(([key,label])=><button key={key} className={filter===key?'active':''} onClick={()=>setFilter(key)}>{label}{key==='open'&&<i>{current.length-completed}</i>}</button>)}</div></div>
     {message&&<div className="todoNotice" role="status"><span>✦</span>{message}<button onClick={()=>setMessage('')}>×</button></div>}
     <div className="questList">{shown.map(item=><Task key={item.id} item={item} onToggle={toggle} onRemove={remove} busy={busy}/>)}</div>
     {!shown.length&&<div className="questEmpty"><div>{filter==='done'?'☆':'✓'}</div><h3>{current.length&&filter==='open'?'เก็บครบทุกภารกิจแล้ว!':filter==='done'?'ยังไม่มีงานที่ทำเสร็จ':'ยังไม่มีภารกิจวันนี้'}</h3><p>{filter==='open'?'พักได้อย่างสบายใจ หรือเพิ่มเป้าหมายใหม่ด้านขวา':'เพิ่มงานแรกจากช่องด้านขวา แล้วค่อยเริ่มทีละข้อ'}</p></div>}
-   </main>
-   <aside className="todoSide"><Composer onSave={add} busy={busy}/><div className="todoDailyTip"><span>✦</span><div><b>กฎของวันนี้</b><p>เลือกงานสำคัญที่สุดหนึ่งข้อ ทำให้เสร็จก่อน แล้วค่อยไปข้อถัดไป</p></div></div></aside>
+   </div>
+   <div className="todoSide"><Composer onSave={add} busy={busy}/><div className="todoDailyTip"><span>✦</span><div><b>กฎของวันนี้</b><p>เลือกงานสำคัญที่สุดหนึ่งข้อ ทำให้เสร็จก่อน แล้วค่อยไปข้อถัดไป</p></div></div></div>
   </div>
  </section>;
 }
