@@ -6,10 +6,12 @@ import todoMascot from './assets/tae-checklist-desk-web.png';
 const localDay=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
 const newId=()=>`todo-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
 const blank=()=>({id:newId(),date:localDay(),title:'',detail:'',category:'life',priority:'normal',done:false,createdAt:new Date().toISOString()});
-const PRIORITIES={high:{label:'สำคัญ',icon:'/ui/pixel/flame.png'},normal:{label:'ทั่วไป',icon:'/ui/pixel/check.png'}};
+const PRIORITIES={high:{label:'สำคัญ',icon:'/ui/pixel/flame.png'},normal:{label:'ทั่วไป',icon:'/goals/plan/checklist.png'}};
 const priorityOf=value=>value==='high'?'high':'normal';
 const priorityWeight=value=>value==='high'?2:1;
 const thaiDate=()=>new Intl.DateTimeFormat('th-TH',{weekday:'long',day:'numeric',month:'long'}).format(new Date());
+const dateKey=date=>`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+const displayDate=value=>{const [year,month,day]=value.split('-').map(Number);return new Intl.DateTimeFormat('th-TH',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date(year,month-1,day))};
 
 function Composer({onSave,busy}){
  const [form,setForm]=useState(blank),[more,setMore]=useState(false);
@@ -37,8 +39,36 @@ function Task({item,onToggle,onRemove,busy}){
  </article>;
 }
 
+function TodoCalendar({items}){
+ const today=localDay();
+ const [selected,setSelected]=useState(today);
+ const [cursor,setCursor]=useState(()=>{const now=new Date();return {year:now.getFullYear(),month:now.getMonth()}});
+ const grouped=useMemo(()=>{const map=new Map();items.forEach(item=>{const key=String(item.date||'').slice(0,10);if(!map.has(key))map.set(key,[]);map.get(key).push(item)});return map},[items]);
+ const firstDay=new Date(cursor.year,cursor.month,1).getDay();
+ const monthDays=new Date(cursor.year,cursor.month+1,0).getDate();
+ const previousDays=new Date(cursor.year,cursor.month,0).getDate();
+ const cells=Array.from({length:42},(_,index)=>{const number=index-firstDay+1;const date=number<1?new Date(cursor.year,cursor.month-1,previousDays+number):number>monthDays?new Date(cursor.year,cursor.month+1,number-monthDays):new Date(cursor.year,cursor.month,number);return {date,key:dateKey(date),current:date.getMonth()===cursor.month}});
+ const selectedItems=[...(grouped.get(selected)||[])].sort((a,b)=>Number(b.done)-Number(a.done)||priorityWeight(b.priority)-priorityWeight(a.priority));
+ const moveMonth=amount=>setCursor(value=>{const date=new Date(value.year,value.month+amount,1);return {year:date.getFullYear(),month:date.getMonth()}});
+ const choose=cell=>{setSelected(cell.key);if(!cell.current)setCursor({year:cell.date.getFullYear(),month:cell.date.getMonth()})};
+ const monthLabel=new Intl.DateTimeFormat('th-TH',{month:'long',year:'numeric'}).format(new Date(cursor.year,cursor.month,1));
+ return <div className="todoCalendarLayout">
+  <section className="todoCalendarPanel">
+   <header className="calendarHead"><button onClick={()=>moveMonth(-1)} aria-label="เดือนก่อนหน้า">‹</button><div><span>QUEST ARCHIVE</span><h2>{monthLabel}</h2></div><button onClick={()=>moveMonth(1)} aria-label="เดือนถัดไป">›</button></header>
+   <div className="calendarWeek">{['อา','จ','อ','พ','พฤ','ศ','ส'].map((day,index)=><span key={`${day}-${index}`}>{day}</span>)}</div>
+   <div className="calendarGrid">{cells.map(cell=>{const dayItems=grouped.get(cell.key)||[],done=dayItems.filter(item=>item.done).length;return <button key={cell.key} className={`${cell.current?'':'outside'} ${cell.key===today?'today':''} ${cell.key===selected?'selected':''}`} onClick={()=>choose(cell)}><b>{cell.date.getDate()}</b>{dayItems.length>0&&<span className={done===dayItems.length?'complete':''}>{done}/{dayItems.length}</span>}</button>})}</div>
+   <div className="calendarLegend"><span><i className="hasTasks"/>มีรายการ</span><span><i className="allDone"/>ทำครบแล้ว</span></div>
+  </section>
+  <div className="calendarDiary">
+   <div className="calendarDiaryHead"><img src="/goals/plan/journal.png" alt=""/><div><span>บันทึกประจำวัน</span><h2>{displayDate(selected)}</h2></div></div>
+   <div className="calendarDiarySummary"><b>{selectedItems.filter(item=>item.done).length}</b><span>ทำเสร็จจาก {selectedItems.length} รายการ</span></div>
+   {selectedItems.length?<div className="calendarTaskList">{selectedItems.map(item=>{const priority=priorityOf(item.priority),meta=PRIORITIES[priority];return <article key={item.id} className={`${item.done?'done':''} ${priority}`}><span className="calendarTaskState">{item.done?'✓':'•'}</span><div><span className={`questPriority ${priority}`}><img src={meta.icon} alt=""/>{meta.label}</span><h3>{item.title}</h3>{item.detail&&<p>{item.detail}</p>}</div></article>})}</div>:<div className="calendarNoEntry"><img src="/goals/plan/schedule.png" alt=""/><b>วันนี้ยังไม่มีบันทึก</b><span>วันที่มีงานจะแสดงจำนวนไว้บนปฏิทิน</span></div>}
+  </div>
+ </div>;
+}
+
 export function Todos({onRequireOwner,onSuccess}){
- const [items,setItems]=useState([]),[ready,setReady]=useState(false),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[filter,setFilter]=useState('open'),[celebrate,setCelebrate]=useState(0);
+ const [items,setItems]=useState([]),[ready,setReady]=useState(false),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[filter,setFilter]=useState('open'),[celebrate,setCelebrate]=useState(0),[view,setView]=useState('today');
  useEffect(()=>{let live=true;loadTodos().then(data=>{if(live){setItems(data);setReady(true)}}).catch(error=>{if(live)setMessage(error.message)});return()=>{live=false}},[]);
  const current=useMemo(()=>items.filter(item=>item.date===localDay()),[items]);
  const ordered=useMemo(()=>[...current].sort((a,b)=>Number(a.done)-Number(b.done)||priorityWeight(b.priority)-priorityWeight(a.priority)||String(a.createdAt).localeCompare(String(b.createdAt))),[current]);
@@ -55,7 +85,8 @@ export function Todos({onRequireOwner,onSuccess}){
    <div className={`todoMascot ${celebrate?'celebrate':''}`} key={celebrate||'idle'}><span className="todoSpark s1">✦</span><span className="todoSpark s2">✦</span><span className="todoSpark s3">✦</span><img src={todoMascot} alt="เท่กำลังจัดรายการภารกิจที่โต๊ะ"/></div>
    <div className="todoScore" style={{'--progress':`${percent}%`}}><div><strong>{percent}%</strong><span>สำเร็จวันนี้</span></div></div>
   </header>
-  <div className="todoWorkspace">
+  <nav className="todoViewTabs" aria-label="มุมมอง Todo"><button className={view==='today'?'active':''} onClick={()=>setView('today')}><img src="/goals/plan/checklist.png" alt=""/>วันนี้</button><button className={view==='calendar'?'active':''} onClick={()=>setView('calendar')}><img src="/goals/plan/schedule.png" alt=""/>ปฏิทิน</button></nav>
+  {view==='calendar'?<TodoCalendar items={items}/>:<div className="todoWorkspace">
    <div className="questPanel">
     <div className="questHeader"><div><span className="questKicker">TODAY'S LIST</span><h2>ภารกิจของเรา <b>{current.length}</b></h2></div><div className="questTabs">{[['open','ต้องทำ'],['done','เสร็จแล้ว'],['all','ทั้งหมด']].map(([key,label])=><button key={key} className={filter===key?'active':''} onClick={()=>setFilter(key)}>{label}{key==='open'&&<i>{current.length-completed}</i>}</button>)}</div></div>
     {message&&<div className="todoNotice" role="status"><span>✦</span>{message}<button onClick={()=>setMessage('')}>×</button></div>}
@@ -63,6 +94,6 @@ export function Todos({onRequireOwner,onSuccess}){
     {!shown.length&&<div className="questEmpty"><div>{filter==='done'?'☆':'✓'}</div><h3>{current.length&&filter==='open'?'เก็บครบทุกภารกิจแล้ว!':filter==='done'?'ยังไม่มีงานที่ทำเสร็จ':'ยังไม่มีภารกิจวันนี้'}</h3><p>{filter==='open'?'พักได้อย่างสบายใจ หรือเพิ่มเป้าหมายใหม่ด้านขวา':'เพิ่มงานแรกจากช่องด้านขวา แล้วค่อยเริ่มทีละข้อ'}</p></div>}
    </div>
    <div className="todoSide"><Composer onSave={add} busy={busy}/><div className="todoDailyTip"><span>✦</span><div><b>เรียงให้อัตโนมัติ</b><p>งานสำคัญจะถูกจัดไว้บนสุด ตามด้วยงานทั่วไป</p></div></div></div>
-  </div>
+  </div>}
  </section>;
 }
