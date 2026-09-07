@@ -1,7 +1,7 @@
 import React,{useEffect,useMemo,useState} from 'react';
 import './goals.css';
 import {useSheetGoals} from './use-sheet-goals';
-import {WinCelebration} from './win-celebration';
+import {GoalCelebration} from './goal-celebration';
 import {GOAL_ICONS,PLAN_ICONS,GOAL_STATUS,TERMS,goalIconSrc,planIconSrc,
         buildBoard,daysLeft,formatDay,newId,dayKey} from './goals-model';
 
@@ -319,9 +319,7 @@ export function Goals({onRequireOwner,onSuccess}){
   <p className="goalMessage" role="status">{message}</p>
   {editing&&<GoalModal initial={editing} onSave={saveGoal} onClose={()=>setEditing(null)}/>}
   {editingStep&&<PlanModal initial={editingStep} onSave={saveStep} onClose={()=>!busy&&setEditingStep(null)} busy={busy}/>}
-  {celebration&&<WinCelebration onClose={()=>setCelebration(null)}
-    label={celebration.allDone?'GOAL COMPLETE • BIG JOY':'PLAN COMPLETE • NICE WORK'}
-    title={celebration.allDone?'ทำเป้าหมายนี้สำเร็จแล้ว!':'ทำแผนนี้สำเร็จแล้ว!'}
-    message={<><strong>{celebration.title}</strong><br/>{celebration.allDone?'ครบทุกแผนแล้ว เก่งมาก!':'อีกหนึ่งก้าวเล็ก ๆ ที่พาเราเข้าใกล้เป้าหมาย'}</>}/>} 
+  {celebration&&<GoalCelebration allDone={celebration.allDone} goalTitle={celebration.title}
+    onClose={()=>setCelebration(null)}/>} 
  </section>;
 }
