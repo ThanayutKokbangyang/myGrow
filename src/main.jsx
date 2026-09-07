@@ -8,6 +8,7 @@ import {MusicPlayer, SmallWins, unlockSound, woodStep, winSound, smallWinSound} 
 import {FocusStage} from "./focus-stage";
 import {Goals} from "./goals";
 import {Todos} from "./todos";
+import {Reflections} from "./reflections";
 import {PixelIcon, PomodoroCard, FOCUS_SECONDS, BREAK_SECONDS} from "./pomodoro-card";
 import {
   clearOwnerToken,
@@ -448,6 +449,7 @@ function App() {
           ["progress", "/ui/nav-progress.png", "พัฒนาการ"],
           ["goals", "/goals/goal/dream.png", "เป้าหมาย"],
           ["todos", "/todos/todo-board.png", "ภารกิจวันนี้"],
+          ["reflections", "/goals/plan/journal.png", "ห้องสารภาพ"],
           ["wins", "/ui/pixel/trophy.svg", "ความสำเร็จเล็ก ๆ"],
           ["flashcards", "/ui/pixel/book.png", "Flashcards"],
         ].map(([k, asset, l]) => (
@@ -509,6 +511,8 @@ function App() {
           <Goals onRequireOwner={()=>setVerify({type:"goals"})} onSuccess={celebrateSmallWin} />
         ) : view === "todos" ? (
           <Todos onRequireOwner={(action)=>setVerify({type:"todos",action})} onSuccess={celebrateSmallWin} />
+        ) : view === "reflections" ? (
+          <Reflections onRequireOwner={(action)=>setVerify({type:"todos",action})} />
         ) : view === "wins" ? (
           <SmallWins onSuccess={celebrateSmallWin} onRequireOwner={()=>setVerify({type:"wins"})} />
         ) : view === "history" ? (

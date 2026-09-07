@@ -70,7 +70,8 @@ function TodoCalendar({items}){
 export function Todos({onRequireOwner,onSuccess}){
  const [items,setItems]=useState([]),[ready,setReady]=useState(false),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[filter,setFilter]=useState('open'),[celebrate,setCelebrate]=useState(0),[view,setView]=useState('today');
  useEffect(()=>{let live=true;loadTodos().then(data=>{if(live){setItems(data);setReady(true)}}).catch(error=>{if(live)setMessage(error.message)});return()=>{live=false}},[]);
- const current=useMemo(()=>items.filter(item=>item.date===localDay()),[items]);
+ const todoItems=useMemo(()=>items.filter(item=>!String(item.id).startsWith('reflection-')),[items]);
+ const current=useMemo(()=>todoItems.filter(item=>item.date===localDay()),[todoItems]);
  const ordered=useMemo(()=>[...current].sort((a,b)=>Number(a.done)-Number(b.done)||priorityWeight(b.priority)-priorityWeight(a.priority)||String(a.createdAt).localeCompare(String(b.createdAt))),[current]);
  const shown=ordered.filter(item=>filter==='all'||filter==='done'&&item.done||filter==='open'&&!item.done);
  const completed=current.filter(item=>item.done).length;
@@ -86,7 +87,7 @@ export function Todos({onRequireOwner,onSuccess}){
    <div className="todoScore" style={{'--progress':`${percent}%`}}><div><strong>{percent}%</strong><span>สำเร็จวันนี้</span></div></div>
   </header>
   <nav className="todoViewTabs" aria-label="มุมมอง Todo"><button className={view==='today'?'active':''} onClick={()=>setView('today')}><img src="/goals/plan/checklist.png" alt=""/>วันนี้</button><button className={view==='calendar'?'active':''} onClick={()=>setView('calendar')}><img src="/goals/plan/schedule.png" alt=""/>ปฏิทิน</button></nav>
-  {view==='calendar'?<TodoCalendar items={items}/>:<div className="todoWorkspace">
+  {view==='calendar'?<TodoCalendar items={todoItems}/>:<div className="todoWorkspace">
    <div className="questPanel">
     <div className="questHeader"><div><span className="questKicker">TODAY'S LIST</span><h2>ภารกิจของเรา <b>{current.length}</b></h2></div><div className="questTabs">{[['open','ต้องทำ'],['done','เสร็จแล้ว'],['all','ทั้งหมด']].map(([key,label])=><button key={key} className={filter===key?'active':''} onClick={()=>setFilter(key)}>{label}{key==='open'&&<i>{current.length-completed}</i>}</button>)}</div></div>
     {message&&<div className="todoNotice" role="status"><span>✦</span>{message}<button onClick={()=>setMessage('')}>×</button></div>}
