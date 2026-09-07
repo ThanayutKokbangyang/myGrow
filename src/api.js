@@ -22,8 +22,15 @@ export async function applyWins(changes){return api('/api/wins',{method:'POST',b
 
 export async function loadGoals(){const r=await api('/api/goals');return r.items||[]}
 export async function applyGoals(changes){return api('/api/goals',{method:'POST',body:JSON.stringify({changes})})}
-export async function loadTodos(){const r=await api('/api/todos');return r.items||[]}
-export async function applyTodos(changes){return api('/api/todos',{method:'POST',body:JSON.stringify({changes})})}
+let todosCache=null,todosRequest=null;
+export const getCachedTodos=()=>todosCache;
+export async function loadTodos(options={}){
+ if(!options.refresh&&todosCache!==null)return todosCache;
+ if(!options.refresh&&todosRequest)return todosRequest;
+ todosRequest=api('/api/todos').then(r=>{todosCache=r.items||[];return todosCache}).finally(()=>{todosRequest=null});
+ return todosRequest;
+}
+export async function applyTodos(changes){const result=await api('/api/todos',{method:'POST',body:JSON.stringify({changes})});todosCache=result.items||changes;return {...result,items:todosCache}}
 
 export async function loadFlashcards(){const result=await api('/api/flashcards');return result.cards||[]}
 export async function writeFlashcards(action,payload={}){return api('/api/flashcards',{method:'POST',body:JSON.stringify({action,...payload})})}

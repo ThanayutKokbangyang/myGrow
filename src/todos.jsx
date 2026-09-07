@@ -1,6 +1,6 @@
 import React,{useEffect,useMemo,useState} from 'react';
 import './todos.css';
-import {applyTodos,loadTodos} from './api';
+import {applyTodos,getCachedTodos,loadTodos} from './api';
 import todoMascot from './assets/tae-checklist-desk-web.png';
 
 const localDay=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
@@ -68,7 +68,8 @@ function TodoCalendar({items}){
 }
 
 export function Todos({onRequireOwner,onSuccess}){
- const [items,setItems]=useState([]),[ready,setReady]=useState(false),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[filter,setFilter]=useState('open'),[celebrate,setCelebrate]=useState(0),[view,setView]=useState('today');
+ const cached=getCachedTodos();
+ const [items,setItems]=useState(()=>cached||[]),[ready,setReady]=useState(()=>cached!==null),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[filter,setFilter]=useState('open'),[celebrate,setCelebrate]=useState(0),[view,setView]=useState('today');
  useEffect(()=>{let live=true;loadTodos().then(data=>{if(live){setItems(data);setReady(true)}}).catch(error=>{if(live)setMessage(error.message)});return()=>{live=false}},[]);
  const todoItems=useMemo(()=>items.filter(item=>!String(item.id).startsWith('reflection-')),[items]);
  const current=useMemo(()=>todoItems.filter(item=>item.date===localDay()),[todoItems]);

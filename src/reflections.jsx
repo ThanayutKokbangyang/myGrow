@@ -1,6 +1,6 @@
 import React,{useEffect,useMemo,useState} from 'react';
 import './reflections.css';
-import {applyTodos,loadTodos} from './api';
+import {applyTodos,getCachedTodos,loadTodos} from './api';
 import reflectionArt from './assets/tae-reflection-night.png';
 
 const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
@@ -44,7 +44,8 @@ function ReflectionCalendar({entries}){
 }
 
 export function Reflections({onRequireOwner}){
- const [allItems,setAllItems]=useState([]),[form,setForm]=useState(emptyForm),[busy,setBusy]=useState(false),[ready,setReady]=useState(false),[message,setMessage]=useState(''),[view,setView]=useState('today');
+ const cached=getCachedTodos();
+ const [allItems,setAllItems]=useState(()=>cached||[]),[form,setForm]=useState(emptyForm),[busy,setBusy]=useState(false),[ready,setReady]=useState(()=>cached!==null),[message,setMessage]=useState(''),[view,setView]=useState('today');
  useEffect(()=>{let live=true;loadTodos().then(items=>{if(live){setAllItems(items);setReady(true)}}).catch(error=>setMessage(error.message));return()=>{live=false}},[]);
  const entries=useMemo(()=>allItems.filter(item=>String(item.id).startsWith('reflection-')).sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt))),[allItems]);
  const todayEntries=entries.filter(item=>String(item.date).slice(0,10)===today());
