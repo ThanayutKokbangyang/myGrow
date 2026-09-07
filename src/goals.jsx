@@ -286,9 +286,9 @@ export function Goals({onRequireOwner,onSuccess}){
        <span>{goal.percent}%</span>
       </div>
 
-       {goal.steps.length>0&&<button type="button" className="planFold" aria-expanded={plansOpen}
+       {goal.steps.length>0&&<button type="button" className={`planFold ${plansOpen?'open':'closed'}`} aria-expanded={plansOpen}
          aria-controls={`plans-${goal.id}`} onClick={()=>setPlanVisibility(current=>({...current,[goal.id]:!plansOpen}))}>
-        <span>{plansOpen?'▾':'▸'} {plansOpen?'พับแผนย่อย':'ดูแผนย่อย'}</span>
+        <span><i className="planFoldArrow" aria-hidden="true">▾</i>{plansOpen?'พับแผนย่อย':'ดูแผนย่อย'}</span>
         <b>{goal.done}/{goal.total} เสร็จแล้ว</b>
        </button>}
 
@@ -297,7 +297,9 @@ export function Goals({onRequireOwner,onSuccess}){
          <button type="button" className="goalDanger" disabled={busy} onClick={()=>removeItem(goal.id)}>ยืนยันลบ</button>
          <button type="button" onClick={()=>setRemoving(null)}>ยกเลิก</button></p>}
 
-       <div className="planFoldBody" id={`plans-${goal.id}`} hidden={!plansOpen}>
+       <div className={`planFoldBody ${plansOpen?'open':'closed'}`} id={`plans-${goal.id}`}
+         aria-hidden={!plansOpen} inert={plansOpen?undefined:''}>
+       <div className="planFoldInner">
        {goal.steps.length>0&&
         <ul className="planList">{goal.steps.map((step,stepIndex)=>
          <li key={step.id} className={step.status==='done'?'done':''}>
@@ -322,6 +324,7 @@ export function Goals({onRequireOwner,onSuccess}){
         </ul>}
 
        <PlanComposer disabled={busy||!ready} onAdd={data=>addStep(goal,data)}/>
+       </div>
        </div>
       </article>})}
      </div>}
