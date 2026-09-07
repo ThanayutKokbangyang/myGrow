@@ -36,6 +36,8 @@ function todos_(body) {
     if(!Array.isArray(changes)||changes.length>1000)throw new Error('INVALID_CHANGES');
     const valid=x=>x&&typeof x.id==='string'&&x.id&&x.id.length<100&&/^\d{4}-\d{2}-\d{2}$/.test(x.date)&&typeof x.title==='string'&&x.title.trim()&&x.title.length<=160&&['coding','english','math','life'].includes(x.category)&&['normal','high'].includes(x.priority)&&typeof x.done==='boolean';
     changes.forEach(x=>{if(!valid(x))throw new Error('INVALID_TODO')});
+    const keep={};changes.forEach(x=>keep[x.id]=true);
+    for(let row=sheet.getLastRow();row>=2;row--){const rowId=String(sheet.getRange(row,1).getValue()||'');if(rowId&&!keep[rowId])sheet.deleteRow(row);}
     changes.forEach(x=>{const rows=read(),index=rows.findIndex(r=>r.id===x.id);const row=index>=0?index+2:sheet.getLastRow()+1;const values=[x.id,x.date,x.title.trim(),String(x.detail||'').slice(0,400),x.category,x.priority,x.done,String(x.createdAt||new Date().toISOString()),new Date().toISOString()];if(row>sheet.getMaxRows())sheet.insertRowsAfter(sheet.getMaxRows(),100);sheet.getRange(row,1,1,2).setNumberFormat('@');sheet.getRange(row,3,1,4).setNumberFormat('@');sheet.getRange(row,8,1,2).setNumberFormat('@');sheet.getRange(row,1,1,TODO_HEADERS.length).setValues([values]);});
     return {ok:true,items:read()};
   } finally { lock.releaseLock(); }
