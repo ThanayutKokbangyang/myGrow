@@ -22,6 +22,8 @@ export async function applyWins(changes){return api('/api/wins',{method:'POST',b
 
 export async function loadGoals(){const r=await api('/api/goals');return r.items||[]}
 export async function applyGoals(changes){return api('/api/goals',{method:'POST',body:JSON.stringify({changes})})}
+export async function loadTodos(){const r=await api('/api/todos');return r.items||[]}
+export async function applyTodos(changes){return api('/api/todos',{method:'POST',body:JSON.stringify({changes})})}
 
 export async function loadFlashcards(){const result=await api('/api/flashcards');return result.cards||[]}
 export async function writeFlashcards(action,payload={}){return api('/api/flashcards',{method:'POST',body:JSON.stringify({action,...payload})})}

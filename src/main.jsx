@@ -7,6 +7,7 @@ import {countStreak, dayKey, formatDayTH} from "./day";
 import {MusicPlayer, SmallWins, unlockSound, woodStep, winSound, smallWinSound} from "./comfort";
 import {FocusStage} from "./focus-stage";
 import {Goals} from "./goals";
+import {Todos} from "./todos";
 import {PixelIcon, PomodoroCard, FOCUS_SECONDS, BREAK_SECONDS} from "./pomodoro-card";
 import {
   clearOwnerToken,
@@ -432,6 +433,7 @@ function App() {
     notify("ยืนยันว่าเป็นเท่แล้ว เบราว์เซอร์จะจำไว้");
     if (pending?.type === "save") await saveNow(pending.data);
     if (pending?.type === "delete") await removeNow(pending.id);
+    if (pending?.type === "todos") await pending.action();
   }
   return (
     <div className="app" onPointerDownCapture={unlockSound} onKeyDownCapture={unlockSound}>
@@ -445,6 +447,7 @@ function App() {
           ["history", "/ui/nav-history.png", "ประวัติ"],
           ["progress", "/ui/nav-progress.png", "พัฒนาการ"],
           ["goals", "/goals/goal/dream.png", "เป้าหมาย"],
+          ["todos", "/todos/todo-board.png", "ภารกิจวันนี้"],
           ["wins", "/ui/pixel/trophy.svg", "ความสำเร็จเล็ก ๆ"],
           ["flashcards", "/ui/pixel/book.png", "Flashcards"],
         ].map(([k, asset, l]) => (
@@ -504,6 +507,8 @@ function App() {
           <Flashcards onRequireOwner={()=>setVerify({type:"flashcards"})} onSuccess={celebrateSound} ownerOpen={Boolean(verify)} />
         ) : view === "goals" ? (
           <Goals onRequireOwner={()=>setVerify({type:"goals"})} onSuccess={celebrateSmallWin} />
+        ) : view === "todos" ? (
+          <Todos onRequireOwner={(action)=>setVerify({type:"todos",action})} onSuccess={celebrateSmallWin} />
         ) : view === "wins" ? (
           <SmallWins onSuccess={celebrateSmallWin} onRequireOwner={()=>setVerify({type:"wins"})} />
         ) : view === "history" ? (

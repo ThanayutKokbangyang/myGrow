@@ -16,10 +16,29 @@ function doPost(e) {
     if (body.action === 'list') return response_({ ok: true, items: listActivities_() });
     if (body.action === 'append') return response_({ ok: true, item: appendActivity_(body.item || {}) });
     if (body.action === 'delete') return response_({ ok: true, deleted: deleteActivity_(String(body.id || '')) });
+    if (body.action === 'todos_list' || body.action === 'todos_apply') return todos_(body);
     return response_({ ok: false, error: 'ACTION_INVALID' });
   } catch (error) {
     return response_({ ok: false, error: String(error && error.message ? error.message : error) });
   }
+}
+
+const TODO_HEADERS = ['id','date','title','detail','category','priority','done','createdAt','updatedAt'];
+function todos_(body) {
+  const lock = LockService.getScriptLock(); lock.waitLock(30000);
+  try {
+    const book = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let sheet = book.getSheetByName('Todos');
+    if (!sheet) { sheet = book.insertSheet('Todos'); sheet.getRange(1,1,1,TODO_HEADERS.length).setValues([TODO_HEADERS]); sheet.setFrozenRows(1); }
+    const read = () => sheet.getLastRow()<2 ? [] : sheet.getRange(2,1,sheet.getLastRow()-1,TODO_HEADERS.length).getValues().filter(r=>String(r[0]||'').trim()).map(r=>({id:String(r[0]),date:String(r[1]),title:String(r[2]),detail:String(r[3]||''),category:String(r[4]||'coding'),priority:String(r[5]||'normal'),done:r[6]===true||String(r[6]).toLowerCase()==='true',createdAt:String(r[7]||'')}));
+    if (body.action === 'todos_list') return {ok:true,items:read()};
+    const changes=body.changes;
+    if(!Array.isArray(changes)||changes.length>1000)throw new Error('INVALID_CHANGES');
+    const valid=x=>x&&typeof x.id==='string'&&x.id&&x.id.length<100&&/^\d{4}-\d{2}-\d{2}$/.test(x.date)&&typeof x.title==='string'&&x.title.trim()&&x.title.length<=160&&['coding','english','math','life'].includes(x.category)&&['normal','high'].includes(x.priority)&&typeof x.done==='boolean';
+    changes.forEach(x=>{if(!valid(x))throw new Error('INVALID_TODO')});
+    changes.forEach(x=>{const rows=read(),index=rows.findIndex(r=>r.id===x.id);const row=index>=0?index+2:sheet.getLastRow()+1;const values=[x.id,x.date,x.title.trim(),String(x.detail||'').slice(0,400),x.category,x.priority,x.done,String(x.createdAt||new Date().toISOString()),new Date().toISOString()];if(row>sheet.getMaxRows())sheet.insertRowsAfter(sheet.getMaxRows(),100);sheet.getRange(row,1,1,2).setNumberFormat('@');sheet.getRange(row,3,1,4).setNumberFormat('@');sheet.getRange(row,8,1,2).setNumberFormat('@');sheet.getRange(row,1,1,TODO_HEADERS.length).setValues([values]);});
+    return {ok:true,items:read()};
+  } finally { lock.releaseLock(); }
 }
 
 function sheet_() {
