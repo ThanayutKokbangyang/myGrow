@@ -1,5 +1,6 @@
 import React, {useCallback,useEffect,useLayoutEffect,useRef,useState} from 'react';
-export const localDay = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+import {dayKey} from './day';
+export const localDay=()=>dayKey();
 const read=(key,fallback)=>{try{return JSON.parse(localStorage.getItem(key))??fallback}catch{return fallback}};
 let audio;
 export function unlockSound(){try{audio??=new (window.AudioContext||window.webkitAudioContext)();if(audio.state==='suspended')audio.resume().catch(()=>{});}catch{}}
