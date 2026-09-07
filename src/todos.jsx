@@ -1,7 +1,7 @@
 import React,{useEffect,useMemo,useState} from 'react';
 import './todos.css';
 import {applyTodos,loadTodos} from './api';
-import todoMascot from './assets/tae-checklist-desk.png';
+import todoMascot from './assets/tae-checklist-desk-web.png';
 
 const localDay=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
 const newId=()=>`todo-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
