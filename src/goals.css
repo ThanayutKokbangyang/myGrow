@@ -78,6 +78,9 @@
 .goalBar i{display:block;height:100%;background:#439182;transition:width .25s steps(8,end)}
 .goalProgress b{font-size:13px;color:#6f5d3c}
 .goalProgress span{font:900 15px 'Courier New',monospace;color:#327466;min-width:44px;text-align:right}
+.goalsPage .planFold{display:flex;width:100%;min-height:36px;margin-top:9px;padding:5px 9px;justify-content:space-between;background:#ead8aa;border-color:#8c7954;box-shadow:inset 2px 2px #fff0c7,2px 2px #a28a60;color:#5f5138;font-size:13px}
+.planFold span{font-weight:800}.planFold b{color:#327466;font:900 12px 'Courier New',monospace}
+.planFoldBody[hidden]{display:none}
 .goalConfirm{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0 0;padding:9px 12px;
  background:#ffe6dc;border-left:4px solid #b8402f;font-size:14px}
 .goalConfirm button{font-size:13px;padding:5px 10px;min-height:32px}

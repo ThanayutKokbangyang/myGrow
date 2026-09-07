@@ -136,6 +136,7 @@ export function Goals({onRequireOwner,onSuccess}){
  const [editingStep,setEditingStep]=useState(null);
  const [removing,setRemoving]=useState(null);
  const [celebration,setCelebration]=useState(null);
+ const [planVisibility,setPlanVisibility]=useState({});
  const [today,setToday]=useState(dayKey);
  const board=useMemo(()=>buildBoard(items),[items]);
  useEffect(()=>{const tick=()=>setToday(dayKey());const timer=setInterval(tick,30000);window.addEventListener('focus',tick);return()=>{clearInterval(timer);window.removeEventListener('focus',tick)}},[]);
@@ -253,8 +254,9 @@ export function Goals({onRequireOwner,onSuccess}){
       <h2>{board.length?'ไม่มีเป้าหมายในช่วงเวลานี้':'ยังไม่มีเป้าหมาย'}</h2>
       <p>เริ่มจากเป้าหมายเดียวก่อนก็ได้ แล้วค่อยเติมแผนทีละข้อ</p>
      </div>
-   : <div className="goalGrid">{shown.map(goal=>
-      <article key={goal.id} className="goalCard" data-status={goal.status}>
+   : <div className="goalGrid">{shown.map(goal=>{
+      const plansOpen=planVisibility[goal.id]??goal.status!=='done';
+      return <article key={goal.id} className="goalCard" data-status={goal.status}>
        <div className="goalTop">
         <div className="goalArt"><img src={goalIconSrc(goal.icon)} alt=""/></div>
         <div className="goalHead">
@@ -281,14 +283,21 @@ export function Goals({onRequireOwner,onSuccess}){
        <div className="goalProgress" role="img" aria-label={`ความคืบหน้า ${goal.percent}%`}>
         <div className="goalBar"><i style={{width:`${goal.percent}%`}}/></div>
         <b>{goal.total?`${goal.done}/${goal.total} แผน`:'ยังไม่มีแผน'}</b>
-        <span>{goal.percent}%</span>
-       </div>
+       <span>{goal.percent}%</span>
+      </div>
+
+       {goal.steps.length>0&&<button type="button" className="planFold" aria-expanded={plansOpen}
+         aria-controls={`plans-${goal.id}`} onClick={()=>setPlanVisibility(current=>({...current,[goal.id]:!plansOpen}))}>
+        <span>{plansOpen?'▾':'▸'} {plansOpen?'พับแผนย่อย':'ดูแผนย่อย'}</span>
+        <b>{goal.done}/{goal.total} เสร็จแล้ว</b>
+       </button>}
 
        {removing===goal.id&&
         <p className="goalConfirm">ลบเป้าหมายนี้พร้อมแผนทั้งหมด?
          <button type="button" className="goalDanger" disabled={busy} onClick={()=>removeItem(goal.id)}>ยืนยันลบ</button>
          <button type="button" onClick={()=>setRemoving(null)}>ยกเลิก</button></p>}
 
+       <div className="planFoldBody" id={`plans-${goal.id}`} hidden={!plansOpen}>
        {goal.steps.length>0&&
         <ul className="planList">{goal.steps.map((step,stepIndex)=>
          <li key={step.id} className={step.status==='done'?'done':''}>
@@ -313,7 +322,8 @@ export function Goals({onRequireOwner,onSuccess}){
         </ul>}
 
        <PlanComposer disabled={busy||!ready} onAdd={data=>addStep(goal,data)}/>
-      </article>)}
+       </div>
+      </article>})}
      </div>}
 
   <p className="goalMessage" role="status">{message}</p>
