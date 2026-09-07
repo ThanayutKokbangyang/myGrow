@@ -2,6 +2,23 @@ import {dayKey as dayKeyOf} from './day';
 export const DAY=86400000;
 export function normalizeCard(c){if(!c||c.id===undefined||!String(c.word||'').trim()||!String(c.meaning||'').trim())throw Error('คำศัพท์ต้องมี id คำศัพท์ และคำแปล');return {id:String(c.id),word:String(c.word).trim(),meaning:String(c.meaning).trim(),phonetic:String(c.phonetic||''),example:String(c.example||''),translation:String(c.translation||''),tag:String(c.tag||'General'),imageUrl:/^https:\/\//.test(c.imageUrl||'')?String(c.imageUrl):'',imageFileId:String(c.imageFileId||''),level:Math.min(5,Math.max(0,Math.floor(Number(c.level)||0))),due:Math.max(0,Number(c.due)||0),correct:Math.max(0,Math.floor(Number(c.correct)||0)),attempts:Math.max(0,Math.floor(Number(c.attempts)||0)),createdAt:String(c.createdAt||''),updatedAt:String(c.updatedAt||'')};}
 export const cleanGuess=s=>s.normalize('NFKC').trim().toLowerCase().replace(/\s+/g,' ');
+export function clozeSentence(example,word){
+ const source=String(example||''),answer=String(word||'').trim();
+ if(!source||!answer)return '';
+ const escaped=answer.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+ const match=new RegExp(`(^|[^A-Za-z])(${escaped})(?=$|[^A-Za-z])`,'i');
+ return match.test(source)?source.replace(match,(_,before)=>`${before}_____`):'';
+}
+const choiceHash=value=>{let out=0;for(const ch of String(value))out=(out*31+ch.charCodeAt(0))>>>0;return out};
+export function meaningChoices(cards,current,limit=4){
+ if(!current)return [];
+ const seen=new Set(),options=[];
+ for(const card of [current,...cards]){
+  const meaning=String(card?.meaning||'').trim();
+  if(meaning&&!seen.has(meaning)){seen.add(meaning);options.push(meaning)}
+ }
+ return options.slice(0,Math.max(2,limit)).sort((a,b)=>choiceHash(`${current.id}:${a}`)-choiceHash(`${current.id}:${b}`));
+}
 export function reviewStats(cards){const attempts=cards.reduce((n,c)=>n+c.attempts,0),correct=cards.reduce((n,c)=>n+c.correct,0);return {attempts,accuracy:attempts?Math.round(correct/attempts*100):0,mastered:cards.filter(c=>c.level>=4).length};}
 export function dueCards(cards,now=Date.now()){return cards.filter(c=>c.due<=now).sort((a,b)=>a.due-b.due);}
 
