@@ -5,7 +5,7 @@ import {applyTodos,loadTodos} from './api';
 const localDay=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
 const newId=()=>`todo-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
 const blank=()=>({id:newId(),date:localDay(),title:'',detail:'',category:'life',priority:'normal',done:false,createdAt:new Date().toISOString()});
-const PRIORITIES={high:{label:'สำคัญ',mark:'!!'},normal:{label:'ทั่วไป',mark:'!'}};
+const PRIORITIES={high:{label:'สำคัญ',icon:'/ui/pixel/flame.png'},normal:{label:'ทั่วไป',icon:'/ui/pixel/check.png'}};
 const priorityOf=value=>value==='high'?'high':'normal';
 const priorityWeight=value=>value==='high'?2:1;
 const thaiDate=()=>new Intl.DateTimeFormat('th-TH',{weekday:'long',day:'numeric',month:'long'}).format(new Date());
@@ -18,7 +18,7 @@ function Composer({onSave,busy}){
   <div className="todoComposerHead"><span>+</span><div><h2>เพิ่มสิ่งที่ต้องทำ</h2><p>งานอะไรก็ได้ที่เราอยากทำวันนี้</p></div></div>
   <label className="todoTitleField"><span>วันนี้จะทำอะไร?</span><input value={form.title} maxLength={160} placeholder="เช่น จ่ายค่าไฟ หรืออ่านหนังสือ" onChange={e=>set('title',e.target.value)} required/></label>
   <span className="todoPriorityLabel">จัดลำดับความสำคัญ</span>
-  <div className="todoQuickPicks" aria-label="เลือกระดับความสำคัญ">{Object.entries(PRIORITIES).map(([key,item])=><button type="button" key={key} className={`${key} ${form.priority===key?'active':''}`} onClick={()=>set('priority',key)}><i>{item.mark}</i>{item.label}</button>)}</div>
+  <div className="todoQuickPicks" aria-label="เลือกระดับความสำคัญ">{Object.entries(PRIORITIES).map(([key,item])=><button type="button" key={key} className={`${key} ${form.priority===key?'active':''}`} onClick={()=>set('priority',key)}><img src={item.icon} alt=""/>{item.label}</button>)}</div>
   <button type="button" className="todoMore" aria-expanded={more} onClick={()=>setMore(value=>!value)}>{more?'− ซ่อนรายละเอียด':'+ เพิ่มรายละเอียด'}</button>
   {more&&<div className="todoMoreFields"><label><span>รายละเอียด</span><textarea rows="3" value={form.detail} maxLength={400} placeholder="เขียนรายละเอียดเพิ่มเติมได้ตามต้องการ" onChange={e=>set('detail',e.target.value)}/></label></div>}
   <button className="todoAdd" disabled={!form.title.trim()||busy}>{busy?'กำลังบันทึก…':'เพิ่มลงภารกิจวันนี้'} <span>→</span></button>
@@ -26,11 +26,13 @@ function Composer({onSave,busy}){
 }
 
 function Task({item,onToggle,onRemove,busy}){
+ const [confirming,setConfirming]=useState(false);
  const priority=priorityOf(item.priority),meta=PRIORITIES[priority];
  return <article className={`questCard ${item.done?'isDone':''} priority-${priority}`}>
   <button className="questCheck" onClick={()=>onToggle(item)} disabled={busy} aria-label={item.done?'เปลี่ยนเป็นยังไม่เสร็จ':'ทำภารกิจนี้เสร็จแล้ว'}><span>{item.done?'✓':''}</span></button>
-  <div className="questBody"><div className="questMeta"><span className={`questPriority ${priority}`}><i>{meta.mark}</i>{meta.label}</span></div><h3>{item.title}</h3>{item.detail&&<p>{item.detail}</p>}</div>
-  <button className="questDelete" onClick={()=>onRemove(item)} disabled={busy} aria-label={`ลบ ${item.title}`}>×</button>
+  <div className="questBody"><div className="questMeta"><span className={`questPriority ${priority}`}><img src={meta.icon} alt=""/>{meta.label}</span></div><h3>{item.title}</h3>{item.detail&&<p>{item.detail}</p>}</div>
+  <button className="questDelete" onClick={()=>setConfirming(true)} disabled={busy||confirming} aria-label={`ลบ ${item.title}`}>×</button>
+  {confirming&&<div className="questConfirm" role="alert"><div><b>ลบรายการนี้?</b><span>รายการจะหายจากวันนี้</span></div><button type="button" className="danger" onClick={()=>onRemove(item)} disabled={busy}>ลบ</button><button type="button" onClick={()=>setConfirming(false)} disabled={busy}>ยกเลิก</button></div>}
  </article>;
 }
 
@@ -45,11 +47,11 @@ export function Todos({onRequireOwner,onSuccess}){
  async function persist(next){setBusy(true);setMessage('');try{const result=await applyTodos(next);setItems(result.items||next);return true}catch(error){if(error.status===401){onRequireOwner?.(()=>persist(next));return false}setMessage(error.message);return false}finally{setBusy(false)}}
  async function add(item){if(await persist([...items,item]))setMessage('เพิ่มภารกิจให้แล้ว พร้อมลุย!')}
  async function toggle(item){const completing=!item.done;if(await persist(items.map(value=>value.id===item.id?{...value,done:completing}:value))&&completing){setCelebrate(Date.now());onSuccess?.()}}
- async function remove(item){if(!confirm(`ลบ “${item.title}” ใช่ไหม?`))return;await persist(items.filter(value=>value.id!==item.id))}
+ async function remove(item){await persist(items.filter(value=>value.id!==item.id))}
  return <section className="page todosPage">
   <header className="todoHero">
    <div className="todoHeroCopy"><div className="todoDate"><span>DAILY QUEST</span><i>{thaiDate()}</i></div><h1>วันนี้เรา<br/><em>จะทำอะไรบ้าง?</em></h1><p>ไม่ต้องทำทุกอย่างพร้อมกัน เลือกหนึ่งข้อ แล้วเริ่มจากตรงนั้น</p><div className={`todoCloud ${ready?'online':''}`}><span/>{ready?'บันทึกกับ Google Sheets แล้ว':'กำลังเชื่อมต่อ Google Sheets…'}</div></div>
-   <div className={`todoMascot ${celebrate?'celebrate':''}`} key={celebrate||'idle'}><span className="todoSpark s1">✦</span><span className="todoSpark s2">✦</span><span className="todoSpark s3">✦</span><img src="/todos/tae-checklist.png" alt="เท่กำลังเช็กรายการภารกิจ"/></div>
+   <div className={`todoMascot ${celebrate?'celebrate':''}`} key={celebrate||'idle'}><span className="todoSpark s1">✦</span><span className="todoSpark s2">✦</span><span className="todoSpark s3">✦</span><img src="/todos/tae-checklist-desk.png" alt="เท่กำลังจัดรายการภารกิจที่โต๊ะ"/></div>
    <div className="todoScore" style={{'--progress':`${percent}%`}}><div><strong>{percent}%</strong><span>สำเร็จวันนี้</span></div></div>
   </header>
   <div className="todoWorkspace">
