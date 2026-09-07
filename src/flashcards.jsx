@@ -13,8 +13,26 @@ import {
   cardDay,
   dayKey,
   groupByDay,
+  clozeSentence,
+  meaningChoices,
 } from "./flashcard-model";
 import "./flashcards.css";
+const REVIEW_MODES = [
+  ["classic", "คำศัพท์ → ความหมาย"],
+  ["reverse", "ความหมาย → พิมพ์คำศัพท์"],
+  ["cloze", "เติมคำในประโยค"],
+  ["choice", "เลือกความหมาย"],
+  ["image", "ภาพ → พิมพ์คำศัพท์"],
+];
+const waitLabel = (ms) => {
+  if (!Number.isFinite(ms)) return "ยังไม่มีรอบถัดไป";
+  if (ms <= 0) return "พร้อมทบทวนแล้ว";
+  const minutes = Math.ceil(ms / 60000);
+  if (minutes < 60) return `อีก ${minutes} นาที`;
+  const hours = Math.ceil(minutes / 60);
+  if (hours < 24) return `อีก ${hours} ชั่วโมง`;
+  return `อีก ${Math.ceil(hours / 24)} วัน`;
+};
 const CACHE = "mygrow-vocabulary-v1",
   FRESH_MS = 60000;
 const readCache = () => {
@@ -63,8 +81,10 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
     [tag, setTag] = useState("all"),
     [day, setDay] = useState("all"),
     [all, setAll] = useState(false),
+    [mode, setMode] = useState("classic"),
     [now, setNow] = useState(Date.now),
-    [streak, setStreak] = useState(0);
+    [streak, setStreak] = useState(0),
+    [sessionReviewed, setSessionReviewed] = useState(0);
   const [editor, setEditor] = useState(null),
     [removing, setRemoving] = useState(null),
     [guess, setGuess] = useState(""),
@@ -177,11 +197,42 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
   const queue = all ? filtered : due,
     current = queue[index % Math.max(queue.length, 1)];
   const stats = reviewStats(cards);
+  const clozePrompt = useMemo(
+    () => (current ? clozeSentence(current.example, current.word) : ""),
+    [current?.id, current?.example, current?.word],
+  );
+  const choices = useMemo(
+    () => meaningChoices(filtered, current),
+    [filtered, current?.id],
+  );
+  const effectiveMode =
+    mode === "cloze" && !clozePrompt
+      ? "reverse"
+      : mode === "choice" && choices.length < 2
+        ? "classic"
+        : mode === "image" && !current?.imageUrl
+          ? "reverse"
+          : mode;
+  const nextDue = Math.min(
+    ...filtered.map((card) => Number(card.due)).filter((dueAt) => dueAt > now),
+  );
+  const sessionTotal = sessionReviewed + queue.length;
+  const sessionPercent = all
+    ? queue.length
+      ? (Math.min(sessionReviewed, queue.length) / queue.length) * 100
+      : 0
+    : sessionTotal
+      ? (sessionReviewed / sessionTotal) * 100
+      : 100;
   useEffect(() => {
     setFlipped(false);
     setGuess("");
     setGuessResult("");
-  }, [current?.id, all, tag, day]);
+  }, [current?.id, all, tag, day, mode]);
+  useEffect(() => {
+    setSessionReviewed(0);
+    setIndex(0);
+  }, [all, tag, mode]);
   function speak() {
     if (!current) return;
     if (!window.speechSynthesis) {
@@ -194,8 +245,41 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
     utterance.rate = 0.82;
     speechSynthesis.speak(utterance);
   }
+  function checkTypedAnswer(event) {
+    event.preventDefault();
+    setGuessResult(
+      cleanGuess(guess) === cleanGuess(current.word)
+        ? "ถูกต้อง!"
+        : "ยังไม่ถูก ดูคำตอบแล้วลองจำอีกครั้ง",
+    );
+    setFlipped(true);
+  }
+  function chooseMeaning(meaning) {
+    setGuessResult(
+      cleanGuess(meaning) === cleanGuess(current.meaning)
+        ? "ถูกต้อง!"
+        : "ยังไม่ถูก ดูคำตอบแล้วลองจำอีกครั้ง",
+    );
+    setFlipped(true);
+  }
   async function answer(remembered) {
     if (!current || !flipped || busy || editor || ownerOpen) return;
+    if (remembered && guessResult && guessResult !== "ถูกต้อง!") return;
+    if (all) {
+      setSessionReviewed((value) => value + 1);
+      setStreak((value) => (remembered ? value + 1 : 0));
+      setNotice(
+        remembered
+          ? "ฝึกผ่านแล้ว · Free Practice ไม่เปลี่ยนระดับหรือรอบทบทวน"
+          : "ข้ามไว้ฝึกต่อได้ · Free Practice ไม่เปลี่ยนรอบทบทวน",
+      );
+      if (remembered) onSuccess?.();
+      setIndex((value) => (value + 1) % Math.max(queue.length, 1));
+      setFlipped(false);
+      setGuess("");
+      setGuessResult("");
+      return;
+    }
     const result = await mutate("review", {
       id: current.id,
       remembered,
@@ -205,6 +289,7 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
     const updated = normalizeCard(result.card);
     accept(cards.map((c) => (c.id === updated.id ? updated : c)));
     setNow(Date.now());
+    setSessionReviewed((value) => value + 1);
     setStreak((v) => (remembered ? v + 1 : 0));
     setNotice(
       remembered
@@ -256,6 +341,8 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
       tag: c.tag || "General",
       imageUrl: c.imageUrl || "",
       imageFileId: c.imageFileId || "",
+      createdAt: c.createdAt || "",
+      updatedAt: c.updatedAt || "",
     });
   }
   async function saveCard(card, image) {
@@ -345,6 +432,16 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
               ))}
             </select>
           </label>
+          {tab === "study" && (
+            <label>
+              รูปแบบการทบทวน
+              <select value={mode} onChange={(e) => setMode(e.target.value)}>
+                {REVIEW_MODES.map(([id, label]) => (
+                  <option key={id} value={id}>{label}</option>
+                ))}
+              </select>
+            </label>
+          )}
           {tab === "words" && (
             <label>
               วันที่บันทึก
@@ -377,7 +474,7 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
                 setQuery("");
               }}
             >
-              {all ? "แสดงเฉพาะคำถึงรอบ" : "ทบทวนทั้งหมด"}
+              {all ? "กลับสู่รอบจริง" : "เข้า Free Practice"}
             </button>
           )}
         </div>
@@ -400,10 +497,20 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
             <>
               <div className="fcCounter">
                 <span>
-                  {all ? "คำในคลัง" : "คำที่ถึงรอบ"} {queue.length} คำ
+                  {all
+                    ? `คำที่ ${(index % queue.length) + 1} จาก ${queue.length}`
+                    : `ทำแล้ว ${sessionReviewed} · เหลือ ${queue.length} คำ`}
                 </span>
                 <span>ระดับ {current.level}/5</span>
               </div>
+              <div className="fcSessionProgress" aria-label={`ความคืบหน้า ${Math.round(sessionPercent)}%`}>
+                <i style={{ width: `${sessionPercent}%` }} />
+              </div>
+              {effectiveMode !== mode && (
+                <p className="fcModeFallback">
+                  การ์ดนี้ไม่มีข้อมูลสำหรับโหมดที่เลือก จึงสลับรูปแบบให้อัตโนมัติ
+                </p>
+              )}
               <div
                 className={`fcCard ${flipped ? "fcFlipped" : ""}`}
                 key={current.id}
@@ -415,27 +522,37 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
                     inert={flipped ? true : undefined}
                   >
                     <span className="fcTag">{current.tag}</span>
-                    {current.imageUrl ? (
+                    {effectiveMode === "choice" ? (
+                      <div className="fcRecallPrompt">
+                        <small>เลือกความหมายที่ถูกต้อง</small>
+                        <strong>{current.word}</strong>
+                        <div className="fcChoices">
+                          {choices.map((meaning) => (
+                            <button type="button" key={meaning} onClick={() => chooseMeaning(meaning)}>
+                              {meaning}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : effectiveMode === "reverse" || effectiveMode === "cloze" || effectiveMode === "image" ? (
                       <>
-                        <img
-                          className="fcRecallImage"
-                          src={current.imageUrl}
-                          alt="ภาพคำใบ้"
-                          referrerPolicy="no-referrer"
-                        />
-                        <form
-                          onSubmit={(e) => {
-                            e.preventDefault();
-                            setGuessResult(
-                              cleanGuess(guess) === cleanGuess(current.word)
-                                ? "ถูกต้อง!"
-                                : "ลองจำคำเฉลยอีกครั้ง",
-                            );
-                            setFlipped(true);
-                          }}
-                        >
+                        {effectiveMode === "image" && (
+                          <img
+                            className="fcRecallImage"
+                            src={current.imageUrl}
+                            alt="ภาพคำใบ้"
+                            referrerPolicy="no-referrer"
+                          />
+                        )}
+                        {effectiveMode === "reverse" && (
+                          <div className="fcRecallPrompt"><small>พิมพ์คำศัพท์ภาษาอังกฤษ</small><strong>{current.meaning}</strong></div>
+                        )}
+                        {effectiveMode === "cloze" && (
+                          <div className="fcRecallPrompt"><small>เติมคำในช่องว่าง</small><strong className="fcCloze">{clozePrompt}</strong></div>
+                        )}
+                        <form onSubmit={checkTypedAnswer}>
                           <label>
-                            ภาพนี้คือคำว่าอะไร?
+                            {effectiveMode === "image" ? "ภาพนี้คือคำว่าอะไร?" : "คำตอบของเรา"}
                             <input
                               value={guess}
                               onChange={(e) => setGuess(e.target.value)}
@@ -478,7 +595,7 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
                       {current.translation && (
                         <span>{current.translation}</span>
                       )}
-                      {guessResult && <span>{guessResult}</span>}
+                      {guessResult && <span className={guessResult === "ถูกต้อง!" ? "fcCorrect" : "fcWrong"}>{guessResult}</span>}
                     </button>
                   </div>
                 </div>
@@ -488,7 +605,7 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
                   <Icon name="play" />
                   ฟังเสียง <kbd>S</kbd>
                 </button>
-                {current.imageUrl && !flipped && (
+                {effectiveMode !== "classic" && !flipped && (
                   <button onClick={() => setFlipped(true)}>ดูเฉลย</button>
                 )}
                 <button
@@ -501,7 +618,7 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
                 </button>
                 <button
                   className="fcRemember"
-                  disabled={!flipped || busy || !ready}
+                  disabled={!flipped || busy || !ready || Boolean(guessResult && guessResult !== "ถูกต้อง!")}
                   onClick={() => answer(true)}
                 >
                   <Icon name="check" />
@@ -522,7 +639,7 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
               </h2>
               <p>
                 {cards.length
-                  ? "พักได้เลย หรือเลือกทบทวนทั้งหมดเพื่อฝึกต่อ"
+                  ? `${waitLabel(nextDue - now)} · พักได้เลย หรือเข้า Free Practice เพื่อฝึกต่อ`
                   : "เพิ่มคำศัพท์ใหม่ หรือรอเชื่อมต่อ Vocabulary ให้สำเร็จ"}
               </p>
             </div>
@@ -646,6 +763,8 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
               ["ตอบไปแล้ว", stats.attempts],
               ["ความแม่นยำ", `${stats.accuracy}%`],
               ["จำระยะยาว", stats.mastered],
+              ["ถึงรอบตอนนี้", dueCards(cards, now).length],
+              ["รอบถัดไป", waitLabel(Math.min(...cards.map((card) => Number(card.due)).filter((dueAt) => dueAt > now)) - now)],
             ].map(([label, n]) => (
               <div key={label}>
                 <span>{label}</span>
