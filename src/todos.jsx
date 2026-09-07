@@ -1,6 +1,7 @@
 import React,{useEffect,useMemo,useState} from 'react';
 import './todos.css';
 import {applyTodos,loadTodos} from './api';
+import todoMascot from './assets/tae-checklist-desk.png';
 
 const localDay=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
 const newId=()=>`todo-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
@@ -51,7 +52,7 @@ export function Todos({onRequireOwner,onSuccess}){
  return <section className="page todosPage">
   <header className="todoHero">
    <div className="todoHeroCopy"><div className="todoDate"><span>DAILY QUEST</span><i>{thaiDate()}</i></div><h1>วันนี้เรา<br/><em>จะทำอะไรบ้าง?</em></h1><p>ไม่ต้องทำทุกอย่างพร้อมกัน เลือกหนึ่งข้อ แล้วเริ่มจากตรงนั้น</p><div className={`todoCloud ${ready?'online':''}`}><span/>{ready?'บันทึกกับ Google Sheets แล้ว':'กำลังเชื่อมต่อ Google Sheets…'}</div></div>
-   <div className={`todoMascot ${celebrate?'celebrate':''}`} key={celebrate||'idle'}><span className="todoSpark s1">✦</span><span className="todoSpark s2">✦</span><span className="todoSpark s3">✦</span><img src="/todos/tae-checklist-desk.png" alt="เท่กำลังจัดรายการภารกิจที่โต๊ะ"/></div>
+   <div className={`todoMascot ${celebrate?'celebrate':''}`} key={celebrate||'idle'}><span className="todoSpark s1">✦</span><span className="todoSpark s2">✦</span><span className="todoSpark s3">✦</span><img src={todoMascot} alt="เท่กำลังจัดรายการภารกิจที่โต๊ะ"/></div>
    <div className="todoScore" style={{'--progress':`${percent}%`}}><div><strong>{percent}%</strong><span>สำเร็จวันนี้</span></div></div>
   </header>
   <div className="todoWorkspace">
