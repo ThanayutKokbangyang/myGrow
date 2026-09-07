@@ -1,0 +1,202 @@
+/* Calendar -- same pixel paper as Goals and Flashcards. */
+.calendarPage{
+ --ink:#20364b;--paper:#fff3d2;--edge:#253b52;--soft:#c9b58b;--muted:#887043;
+ max-width:1240px;margin:0 auto 30px;padding:26px;color:var(--ink);
+ background:#f2e6c4;border:4px solid var(--edge);
+ box-shadow:inset 3px 3px #fff9e8,5px 5px #06132355;
+ font:16px/1.6 'Noto Sans Thai',sans-serif;min-width:0;
+}
+.calendarPage *{box-sizing:border-box}
+.calendarPage button,.calendarPage input,.calendarPage select,.calendarPage textarea{font:inherit}
+.calendarPage button{
+ border:2px solid var(--ink);border-radius:0;background:#f8e6b7;color:var(--ink);
+ box-shadow:inset 2px 2px #fff8e7,3px 3px #aa8b54;padding:8px 13px;cursor:pointer;
+ display:inline-flex;align-items:center;justify-content:center;gap:7px;font-size:15px;min-height:42px;
+}
+.calendarPage button:hover{filter:brightness(1.05)}
+.calendarPage button:active{transform:translate(2px,2px);box-shadow:inset 1px 1px #bca67f}
+.calendarPage button:disabled{opacity:.5;cursor:default}
+.calendarPage :focus-visible{outline:3px solid #d29b32;outline-offset:3px}
+.calendarPage .calPrimary{background:#337f72;color:#fff7df;box-shadow:inset 2px 2px #75b4a4,3px 3px #1c413e;font-weight:700}
+.calendarPage .calDanger{background:#b8402f;color:#fff2e2;box-shadow:inset 2px 2px #e2836f,3px 3px #571711}
+.calEyebrow{margin:0;color:var(--muted);font:bold 12px 'Courier New',monospace;letter-spacing:1.6px}
+.calendarPage img{image-rendering:pixelated}
+
+/* ---- hero -------------------------------------------------------------- */
+.calHero{display:flex;gap:16px;align-items:center;padding-bottom:18px;border-bottom:3px solid var(--soft)}
+.calHeroArt{width:86px;flex:none;align-self:flex-end;margin-bottom:-18px}
+.calHero h1{font-size:29px;line-height:1.3;margin:6px 0 4px}
+.calLead{margin:0;font-size:15px;color:#887450}
+.calAdd{margin-left:auto;white-space:nowrap}
+
+/* ---- upcoming strip ---------------------------------------------------- */
+.calUpcoming{display:flex;gap:14px;align-items:center;margin:18px 0 0;padding:12px 16px;
+ background:#f3dfb4;border:2px solid #445264;box-shadow:inset 2px 2px #fff5d8}
+.calUpcoming>img{width:56px;flex:none}
+.calUpcoming>div{min-width:0;flex:1}
+.calUpcoming b{display:block;font-size:14px;color:#6d5a34;margin-bottom:6px}
+.calUpcoming ul{list-style:none;margin:0;padding:0;display:flex;gap:8px;flex-wrap:wrap}
+.calendarPage .calUpcoming button{gap:7px;padding:5px 10px;min-height:36px;font-size:14px;
+ border-left:5px solid var(--tone);background:#fffaec;max-width:100%}
+.calUpcoming li img{width:22px;height:22px;object-fit:contain}
+.calUpcoming span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px}
+.calUpcoming small{color:#8a7448;font:bold 12px 'Courier New',monospace;white-space:nowrap}
+
+/* ---- board ------------------------------------------------------------- */
+.calBoard{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(320px,1fr);gap:18px;margin-top:18px;align-items:start}
+.calMonth,.calDayPanel{background:var(--paper);border:3px solid #263c4d;
+ box-shadow:inset 3px 3px #fffbee,4px 4px #b09a74;padding:16px}
+.calMonthBar{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.calMonthBar h2{flex:1;text-align:center;margin:0;font-size:20px}
+.calendarPage .calMonthBar button{min-width:42px;padding:6px 10px}
+.calendarPage .calToday{font-size:13px;min-height:38px}
+
+.calGrid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
+.calWeekday{text-align:center;font:bold 12px 'Courier New',monospace;color:#8a7448;padding-bottom:2px}
+.calendarPage .calDay{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
+ gap:3px;min-height:64px;padding:6px 4px 4px;background:#fffaec;border:2px solid #cbb98f;
+ box-shadow:inset 2px 2px #fffdf6;font-size:14px}
+.calDay b{font:900 15px 'Courier New',monospace;color:#3d4f66}
+.calDay.outside{opacity:.42}
+.calDay.isToday{border-color:#337f72;box-shadow:inset 2px 2px #d8f0e7,0 0 0 2px #337f7255}
+.calendarPage .calDay.selected{background:#253e53;border-color:#16283a;box-shadow:inset 2px 2px #5b7484,3px 3px #10283a}
+.calDay.selected b,.calDay.selected small{color:#fff1c1}
+.calStar{width:19px;height:19px;object-fit:contain;margin:-1px 0}
+.calStar.done{opacity:.34;filter:saturate(.4)}
+.calDots{display:flex;gap:3px;flex-wrap:wrap;justify-content:center;align-items:center;min-height:8px}
+.calDots i{width:8px;height:8px;background:var(--tone);border:1px solid #00000035}
+.calDots i.done{opacity:.32}
+/* The selected cell is dark, so a faded dot would vanish on it. */
+.calDay.selected .calDots i{border-color:#ffffff55}
+.calDay.selected .calDots i.done{opacity:.55}
+.calDots u{font:bold 10px 'Courier New',monospace;text-decoration:none;color:#8a7448}
+.calDay small{position:absolute;top:3px;right:4px;font:bold 10px 'Courier New',monospace;color:#a2743a}
+.calHint{margin:10px 0 0;font-size:12px;color:#957f4f;text-align:center}
+
+/* ---- day panel --------------------------------------------------------- */
+.calDayHead{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:14px}
+.calDayHead h2{margin:3px 0 0;font-size:19px;line-height:1.4}
+.calEmpty{text-align:center;padding:26px 12px;border:2px dashed #bead84;background:#f8f0d8}
+.calEmpty img{width:110px}
+.calEmpty p{margin:10px 0 4px;font-size:16px;font-weight:700}
+.calEmpty small{color:#897654}
+.calAllDone{display:flex;gap:12px;align-items:center;margin-bottom:12px;padding:8px 12px;
+ background:#e3efdd;border:2px solid #6f8d6a}
+.calAllDone img{width:52px;flex:none}
+.calAllDone b{font-size:14px;color:#3a6a33}
+
+.calList{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:9px}
+.calList li{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;gap:10px;align-items:start;
+ padding:10px;background:#fffaec;border:2px solid #485669;box-shadow:3px 3px #c8b58c;
+ border-left:6px solid var(--tone)}
+.calList li.done{background:#eef2e8;border-color:#8fa287}
+.calendarPage .calCheck{padding:0;min-height:0;border:0;background:none;box-shadow:none;align-self:center}
+.calBox{width:24px;height:24px;display:grid;place-items:center;border:2px solid #3b4b5e;
+ background:#fffdf3;box-shadow:inset 2px 2px #ded3b6;font:900 15px 'Courier New',monospace;color:#2c7a5f}
+.calList li.done .calBox{background:#3f8a63;color:#fff8e2;border-color:#2b6045;box-shadow:inset 2px 2px #79bb96}
+.calRowIcon{width:34px;height:34px;object-fit:contain;align-self:center}
+.calRowText{min-width:0}
+.calRowText b{font-size:16px;overflow-wrap:break-word}
+.calList li.done .calRowText b{text-decoration:line-through;color:#7c8a76}
+.calRowText p{margin:3px 0 0;font-size:14px;color:#7d6b4c;overflow-wrap:break-word}
+.calRowTags{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.calTag{display:inline-flex;align-items:center;gap:5px;font:bold 11px 'Courier New',monospace;
+ padding:3px 7px;border:2px solid #bdab7f;background:#f4e6bf;color:#68583b}
+.calTag img{width:15px;height:15px;object-fit:contain}
+.calTag.repeat{background:#e2eaf5;border-color:#93a7c6;color:#38517d}
+.calendarPage .calEdit{padding:5px 8px;min-height:0;align-self:center}
+.calEdit img{width:20px;height:20px;object-fit:contain}
+
+/* ---- footer ------------------------------------------------------------ */
+.calFooter{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:16px;font-size:13px;color:#966c38}
+.calFooter .connected{color:#397763}
+.calendarPage .calFooter button{font-size:13px;padding:4px 10px;min-height:34px}
+.calMessage{margin:0;flex:1;min-width:160px;color:#8a6f42}
+
+/* ---- modal ------------------------------------------------------------- */
+.calBackdrop{position:fixed;inset:0;background:#071627c9;display:grid;place-items:center;z-index:20;padding:20px;overflow-y:auto;
+ animation:calFade .18s ease}
+.calModal{width:min(600px,100%);max-height:90dvh;overflow-y:auto;background:#fff3d2;border:4px solid #263c50;
+ box-shadow:6px 6px #0c172d;padding:22px;animation:calPop .3s cubic-bezier(.2,.8,.3,1.2)}
+.calModal header{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:16px}
+.calModal h2{font-size:22px;margin:0}
+.calendarPage .calModal header button{min-height:36px;padding:4px 12px}
+.calFormBody{display:grid;grid-template-columns:auto minmax(0,1fr);gap:16px;align-items:start}
+.calendarPage .calIconPick{flex-direction:column;gap:6px;padding:10px;background:#f7e5bd;
+ box-shadow:inset 2px 2px #fffaea,3px 3px #aa8b54}
+.calIconPick img{width:64px;height:64px;object-fit:contain}
+.calIconPick span{font-size:12px;font-weight:700}
+.calFields{display:grid;gap:12px;min-width:0}
+.calModal label{display:flex;flex-direction:column;gap:5px;font-size:14px;font-weight:700;min-width:0}
+.calModal input,.calModal select,.calModal textarea{
+ padding:9px 11px;border:2px solid #4c5b64;border-radius:0;box-shadow:inset 2px 2px #d8cfb9;
+ background:#fffdf3;color:#253a4a;font-size:16px;width:100%;min-width:0;font-weight:400}
+.calModal textarea{resize:vertical}
+.calModal select{appearance:none;
+ background-image:linear-gradient(45deg,transparent 50%,#4c5b64 50%),linear-gradient(135deg,#4c5b64 50%,transparent 50%);
+ background-position:calc(100% - 17px) 20px,calc(100% - 12px) 20px;background-size:5px 5px;background-repeat:no-repeat;padding-right:34px}
+.calFieldRow{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.calToneField{border:0;margin:0;padding:0}
+.calToneField legend{font-size:14px;font-weight:700;padding:0;margin-bottom:5px}
+.calTonePick{display:flex;gap:8px;flex-wrap:wrap}
+.calendarPage .calTonePick button{padding:5px;min-height:38px;min-width:38px}
+.calTonePick i{display:block;width:20px;height:20px;background:var(--tone);border:2px solid #00000040}
+.calendarPage .calTonePick button[aria-pressed=true]{background:#253e53;box-shadow:inset 2px 2px #5b7484,3px 3px #10283a}
+.calRepeatHint{margin:0;padding:8px 11px;background:#e2eaf5;border-left:4px solid #6f8ab5;font-size:13px;color:#38517d}
+.calModal footer{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;flex-wrap:wrap}
+.calModal footer .calDanger{margin-right:auto}
+.calConfirm{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-right:auto;font-size:14px}
+.calendarPage .calConfirm button{font-size:13px;padding:5px 10px;min-height:34px}
+
+.calPickerModal{width:min(700px,100%)}
+.calIconGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:10px}
+.calendarPage .calIconGrid button{flex-direction:column;gap:5px;padding:9px 6px;min-height:0;font-size:11px;line-height:1.3;
+ text-align:center;animation:calTilePop .26s cubic-bezier(.2,.8,.3,1.2) backwards;
+ animation-delay:calc(min(var(--i,0),12)*13ms)}
+.calIconGrid img{width:56px;height:56px;object-fit:contain}
+.calendarPage .calIconGrid button[aria-pressed=true]{background:#253e53;color:#fff1c1;box-shadow:inset 2px 2px #5b7484,3px 3px #10283a}
+
+@keyframes calFade{from{opacity:0}}
+@keyframes calPop{from{opacity:0;transform:translateY(18px) scale(.96)}}
+@keyframes calTilePop{from{opacity:0;transform:translateY(9px) scale(.9)}}
+@media(prefers-reduced-motion:reduce){
+ .calBackdrop,.calModal,.calIconGrid button{animation:none}
+}
+
+/* ---- narrow screens ---------------------------------------------------- */
+@media(max-width:1000px){
+ .calBoard{grid-template-columns:1fr}
+}
+@media(max-width:760px){
+ .calendarPage{padding:14px 11px;margin-bottom:85px}
+ .calHero{flex-wrap:wrap;gap:12px}
+ .calHero>div:not(.calHeroArt){flex:1 1 170px;min-width:0}
+ .calHeroArt{width:62px;margin-bottom:-14px}
+ .calHero h1{font-size:23px}
+ .calLead{font-size:14px}
+ .calAdd{margin-left:0;width:100%}
+ .calUpcoming{padding:10px 12px;gap:10px}
+ .calUpcoming>img{width:44px}
+ .calUpcoming ul{flex-direction:column}
+ .calendarPage .calUpcoming button{width:100%;justify-content:flex-start}
+ .calUpcoming span{flex:1;max-width:none;text-align:left}
+ .calMonth,.calDayPanel{padding:12px}
+ .calGrid{gap:3px}
+ .calendarPage .calDay{min-height:52px;padding:4px 2px 3px}
+ .calDay b{font-size:13px}
+ .calDots i{width:5px;height:5px}
+ .calStar{width:15px;height:15px}
+ /* Too narrow for the count badge beside the date -- the star already says it. */
+ .calDay small{display:none}
+ .calDayHead{flex-wrap:wrap}
+ .calDayHead h2{font-size:17px}
+ .calList li{grid-template-columns:auto auto minmax(0,1fr);gap:8px}
+ .calEdit{grid-column:3;justify-self:end}
+ .calEmpty img{width:88px}
+ .calFormBody{grid-template-columns:1fr}
+ .calendarPage .calIconPick{flex-direction:row;justify-self:start}
+ .calIconPick img{width:46px;height:46px}
+ .calModal{padding:16px}
+ .calIconGrid{grid-template-columns:repeat(auto-fill,minmax(96px,1fr))}
+ .calIconGrid img{width:44px;height:44px}
+}

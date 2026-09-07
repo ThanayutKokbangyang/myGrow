@@ -7,8 +7,7 @@ import {countStreak, dayKey, formatDayTH} from "./day";
 import {MusicPlayer, SmallWins, unlockSound, woodStep, winSound, smallWinSound} from "./comfort";
 import {FocusStage} from "./focus-stage";
 import {Goals} from "./goals";
-import {Todos} from "./todos";
-import {Reflections} from "./reflections";
+import {Calendar} from "./calendar";
 import {PixelIcon, PomodoroCard, FOCUS_SECONDS, BREAK_SECONDS} from "./pomodoro-card";
 import {
   clearOwnerToken,
@@ -434,7 +433,6 @@ function App() {
     notify("ยืนยันว่าเป็นเท่แล้ว เบราว์เซอร์จะจำไว้");
     if (pending?.type === "save") await saveNow(pending.data);
     if (pending?.type === "delete") await removeNow(pending.id);
-    if (pending?.type === "todos") await pending.action();
   }
   return (
     <div className="app" onPointerDownCapture={unlockSound} onKeyDownCapture={unlockSound}>
@@ -448,8 +446,7 @@ function App() {
           ["history", "/ui/nav-history.png", "ประวัติ"],
           ["progress", "/ui/nav-progress.png", "พัฒนาการ"],
           ["goals", "/goals/goal/dream.png", "เป้าหมาย"],
-          ["todos", "/todos/todo-board.png", "ภารกิจวันนี้"],
-          ["reflections", "/goals/plan/journal.png", "ห้องสารภาพ"],
+          ["calendar", "/calendar/icons/calendar-month.png", "ปฏิทิน"],
           ["wins", "/ui/pixel/trophy.svg", "ความสำเร็จเล็ก ๆ"],
           ["flashcards", "/ui/pixel/book.png", "Flashcards"],
         ].map(([k, asset, l]) => (
@@ -507,12 +504,10 @@ function App() {
           />
         ) : view === "flashcards" ? (
           <Flashcards onRequireOwner={()=>setVerify({type:"flashcards"})} onSuccess={celebrateSound} ownerOpen={Boolean(verify)} />
+        ) : view === "calendar" ? (
+          <Calendar onRequireOwner={()=>setVerify({type:"calendar"})} onSuccess={celebrateSmallWin} />
         ) : view === "goals" ? (
           <Goals onRequireOwner={()=>setVerify({type:"goals"})} onSuccess={celebrateSmallWin} />
-        ) : view === "todos" ? (
-          <Todos onRequireOwner={(action)=>setVerify({type:"todos",action})} onSuccess={celebrateSmallWin} />
-        ) : view === "reflections" ? (
-          <Reflections onRequireOwner={(action)=>setVerify({type:"todos",action})} />
         ) : view === "wins" ? (
           <SmallWins onSuccess={celebrateSmallWin} onRequireOwner={()=>setVerify({type:"wins"})} />
         ) : view === "history" ? (
@@ -1268,11 +1263,11 @@ function Progress({ logs, xp, streak, activeDays }) {
 }
 createRoot(document.getElementById("root")).render(<App />);
 
-// Installed-app support: registering the service worker is what lets iOS keep
-// Grow Room on the home screen and open it offline. Dev builds skip it so the
-// Vite HMR server is never served from the cache.
-if ("serviceWorker" in navigator && import.meta.env.PROD) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js").catch(() => {});
-  });
+// A service worker was registered here for the abandoned installable-app and
+// notification experiments. Nothing needs one now, so clear out any copy left
+// registered in a browser from those builds.
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.getRegistrations?.().then(
+    (list) => list.forEach((registration) => registration.unregister()),
+  ).catch(() => {});
 }
