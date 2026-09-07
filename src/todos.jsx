@@ -2,14 +2,15 @@ import React,{useEffect,useMemo,useState} from 'react';
 import './todos.css';
 import {applyTodos,getCachedTodos,loadTodos} from './api';
 import todoMascot from './assets/tae-checklist-desk-web.png';
+import {dayKey,parseDay} from './day';
 
-const localDay=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
+const localDay=()=>dayKey();
 const newId=()=>`todo-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
 const blank=()=>({id:newId(),date:localDay(),title:'',detail:'',category:'life',priority:'normal',done:false,createdAt:new Date().toISOString()});
 const PRIORITIES={high:{label:'สำคัญ',icon:'/ui/pixel/flame.png'},normal:{label:'ทั่วไป',icon:'/goals/plan/checklist.png'}};
 const priorityOf=value=>value==='high'?'high':'normal';
 const priorityWeight=value=>value==='high'?2:1;
-const thaiDate=()=>new Intl.DateTimeFormat('th-TH',{weekday:'long',day:'numeric',month:'long'}).format(new Date());
+const thaiDate=key=>new Intl.DateTimeFormat('th-TH',{weekday:'long',day:'numeric',month:'long'}).format(parseDay(key));
 const dateKey=date=>`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
 const displayDate=value=>{const [year,month,day]=value.split('-').map(Number);return new Intl.DateTimeFormat('th-TH',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date(year,month-1,day))};
 
@@ -39,10 +40,9 @@ function Task({item,onToggle,onRemove,busy}){
  </article>;
 }
 
-function TodoCalendar({items}){
- const today=localDay();
+function TodoCalendar({items,today}){
  const [selected,setSelected]=useState(today);
- const [cursor,setCursor]=useState(()=>{const now=new Date();return {year:now.getFullYear(),month:now.getMonth()}});
+ const [cursor,setCursor]=useState(()=>{const now=parseDay(today);return {year:now.getFullYear(),month:now.getMonth()}});
  const grouped=useMemo(()=>{const map=new Map();items.forEach(item=>{const key=String(item.date||'').slice(0,10);if(!map.has(key))map.set(key,[]);map.get(key).push(item)});return map},[items]);
  const firstDay=new Date(cursor.year,cursor.month,1).getDay();
  const monthDays=new Date(cursor.year,cursor.month+1,0).getDate();
@@ -70,9 +70,11 @@ function TodoCalendar({items}){
 export function Todos({onRequireOwner,onSuccess}){
  const cached=getCachedTodos();
  const [items,setItems]=useState(()=>cached||[]),[ready,setReady]=useState(()=>cached!==null),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[filter,setFilter]=useState('open'),[celebrate,setCelebrate]=useState(0),[view,setView]=useState('today');
+ const [today,setToday]=useState(localDay);
  useEffect(()=>{let live=true;loadTodos().then(data=>{if(live){setItems(data);setReady(true)}}).catch(error=>{if(live)setMessage(error.message)});return()=>{live=false}},[]);
+ useEffect(()=>{const refresh=()=>setToday(localDay());const timer=setInterval(refresh,30000);window.addEventListener('focus',refresh);return()=>{clearInterval(timer);window.removeEventListener('focus',refresh)}},[]);
  const todoItems=useMemo(()=>items.filter(item=>!String(item.id).startsWith('reflection-')),[items]);
- const current=useMemo(()=>todoItems.filter(item=>item.date===localDay()),[todoItems]);
+ const current=useMemo(()=>todoItems.filter(item=>item.date===today),[todoItems,today]);
  const ordered=useMemo(()=>[...current].sort((a,b)=>Number(a.done)-Number(b.done)||priorityWeight(b.priority)-priorityWeight(a.priority)||String(a.createdAt).localeCompare(String(b.createdAt))),[current]);
  const shown=ordered.filter(item=>filter==='all'||filter==='done'&&item.done||filter==='open'&&!item.done);
  const completed=current.filter(item=>item.done).length;
@@ -83,12 +85,12 @@ export function Todos({onRequireOwner,onSuccess}){
  async function remove(item){await persist(items.filter(value=>value.id!==item.id))}
  return <section className="page todosPage">
   <header className="todoHero">
-   <div className="todoHeroCopy"><div className="todoDate"><span>DAILY QUEST</span><i>{thaiDate()}</i></div><h1>วันนี้เรา<br/><em>จะทำอะไรบ้าง?</em></h1><p>ไม่ต้องทำทุกอย่างพร้อมกัน เลือกหนึ่งข้อ แล้วเริ่มจากตรงนั้น</p><div className={`todoCloud ${ready?'online':''}`}><span/>{ready?'บันทึกกับ Google Sheets แล้ว':'กำลังเชื่อมต่อ Google Sheets…'}</div></div>
+   <div className="todoHeroCopy"><div className="todoDate"><span>DAILY QUEST</span><i>{thaiDate(today)}</i></div><h1>วันนี้เรา<br/><em>จะทำอะไรบ้าง?</em></h1><p>ไม่ต้องทำทุกอย่างพร้อมกัน เลือกหนึ่งข้อ แล้วเริ่มจากตรงนั้น</p><div className={`todoCloud ${ready?'online':''}`}><span/>{ready?'บันทึกกับ Google Sheets แล้ว':'กำลังเชื่อมต่อ Google Sheets…'}</div></div>
    <div className={`todoMascot ${celebrate?'celebrate':''}`} key={celebrate||'idle'}><span className="todoSpark s1">✦</span><span className="todoSpark s2">✦</span><span className="todoSpark s3">✦</span><img src={todoMascot} alt="เท่กำลังจัดรายการภารกิจที่โต๊ะ"/></div>
    <div className="todoScore" style={{'--progress':`${percent}%`}}><div><strong>{percent}%</strong><span>สำเร็จวันนี้</span></div></div>
   </header>
   <nav className="todoViewTabs" aria-label="มุมมอง Todo"><button className={view==='today'?'active':''} onClick={()=>setView('today')}><img src="/goals/plan/checklist.png" alt=""/>วันนี้</button><button className={view==='calendar'?'active':''} onClick={()=>setView('calendar')}><img src="/goals/plan/schedule.png" alt=""/>ปฏิทิน</button></nav>
-  {view==='calendar'?<TodoCalendar items={todoItems}/>:<div className="todoWorkspace">
+  {view==='calendar'?<TodoCalendar items={todoItems} today={today}/>:<div className="todoWorkspace">
    <div className="questPanel">
     <div className="questHeader"><div><span className="questKicker">TODAY'S LIST</span><h2>ภารกิจของเรา <b>{current.length}</b></h2></div><div className="questTabs">{[['open','ต้องทำ'],['done','เสร็จแล้ว'],['all','ทั้งหมด']].map(([key,label])=><button key={key} className={filter===key?'active':''} onClick={()=>setFilter(key)}>{label}{key==='open'&&<i>{current.length-completed}</i>}</button>)}</div></div>
     {message&&<div className="todoNotice" role="status"><span>✦</span>{message}<button onClick={()=>setMessage('')}>×</button></div>}
