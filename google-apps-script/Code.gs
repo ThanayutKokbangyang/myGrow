@@ -131,7 +131,8 @@ function smallWins_(body) {
   } finally { lock.releaseLock(); }
 }
 
-const CARD_HEADERS = ['id','word','phonetic','meaning','example','translation','tag','level','due','correct','attempts','imageUrl','imageFileId','updatedAt','lastReviewId'];
+const LEGACY_CARD_HEADERS = ['id','word','phonetic','meaning','example','translation','tag','level','due','correct','attempts','imageUrl','imageFileId','updatedAt','lastReviewId'];
+const CARD_HEADERS = [...LEGACY_CARD_HEADERS,'createdAt'];
 function cardInput_(input) {
   if(!input || !String(input.id||'') || String(input.id).length>100 || !String(input.word||'').trim() || !String(input.meaning||'').trim())throw new Error('คำศัพท์หรือคำแปลไม่ครบ');
   const c={};
@@ -149,17 +150,22 @@ function flashcards_(body) {
   try {
     const book=SpreadsheetApp.openById(SPREADSHEET_ID);let sheet=book.getSheetByName('Vocabulary');
     if(!sheet){sheet=book.insertSheet('Vocabulary');sheet.getRange(1,1,1,CARD_HEADERS.length).setValues([CARD_HEADERS]);sheet.setFrozenRows(1);}
+    // Add createdAt to existing Vocabulary sheets without moving legacy data.
+    let headers=sheet.getRange(1,1,1,CARD_HEADERS.length).getDisplayValues()[0];
+    if(headers.slice(0,LEGACY_CARD_HEADERS.length).join('|')===LEGACY_CARD_HEADERS.join('|')&&!headers[LEGACY_CARD_HEADERS.length]){
+      sheet.getRange(1,1,1,CARD_HEADERS.length).setValues([CARD_HEADERS]);headers=CARD_HEADERS;
+    }
     // Refuse to write if a manually changed schema could shift existing data.
-    const headers=sheet.getRange(1,1,1,CARD_HEADERS.length).getDisplayValues()[0];
     if(headers.join('|')!==CARD_HEADERS.join('|'))throw new Error('หัวตาราง Vocabulary ไม่ตรงกับเวอร์ชันนี้');
     const read=()=>sheet.getLastRow()<2?[]:sheet.getRange(2,1,sheet.getLastRow()-1,CARD_HEADERS.length).getValues().map((row,i)=>({row:i+2,card:Object.fromEntries(CARD_HEADERS.map((h,j)=>[h,row[j]]))})).filter(x=>x.card.id).map(x=>({row:x.row,card:cardInput_(x.card)}));
     const existing=read(),lookup=new Map(existing.map(x=>[String(x.card.id),x]));
-    const write=(c,row)=>{if(row>sheet.getMaxRows())sheet.insertRowsAfter(sheet.getMaxRows(),100);c.updatedAt=new Date().toISOString();const values=CARD_HEADERS.map(h=>typeof c[h]==='number'?c[h]:"'"+String(c[h]??''));sheet.getRange(row,1,1,CARD_HEADERS.length).setValues([values]);};
+    const write=(c,row)=>{if(row>sheet.getMaxRows())sheet.insertRowsAfter(sheet.getMaxRows(),100);const now=new Date().toISOString();c.createdAt=c.createdAt||c.updatedAt||now;c.updatedAt=now;const values=CARD_HEADERS.map(h=>typeof c[h]==='number'?c[h]:"'"+String(c[h]??''));sheet.getRange(row,1,1,CARD_HEADERS.length).setValues([values]);};
     if(body.action==='cards_list')return {ok:true,cards:existing.map(x=>x.card)};
     if(body.action==='cards_upsert'){
       const c=cardInput_(body.card),old=lookup.get(c.id);
       // Editing text must not reset review progress.
       ['level','due','correct','attempts','lastReviewId'].forEach(h=>c[h]=old?old.card[h]:(h==='lastReviewId'?'':0));
+      c.createdAt=old?(old.card.createdAt||old.card.updatedAt):c.createdAt;
       write(c,old?old.row:sheet.getLastRow()+1);return {ok:true,card:c};
     }
     if(body.action==='cards_delete'){const old=lookup.get(String(body.id));if(old)sheet.deleteRow(old.row);return {ok:true};}
