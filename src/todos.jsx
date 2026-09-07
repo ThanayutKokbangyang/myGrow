@@ -2,6 +2,7 @@ import React,{useEffect,useMemo,useState} from 'react';
 import './todos.css';
 import {applyTodos,getCachedTodos,loadTodos} from './api';
 import todoMascot from './assets/tae-checklist-desk-web.png';
+import todoMascotThumbsUp from './assets/tae-checklist-thumbs-up.png';
 import {dayKey,parseDay} from './day';
 
 const localDay=()=>dayKey();
@@ -73,6 +74,7 @@ export function Todos({onRequireOwner,onSuccess}){
  const [today,setToday]=useState(localDay);
  useEffect(()=>{let live=true;loadTodos().then(data=>{if(live){setItems(data);setReady(true)}}).catch(error=>{if(live)setMessage(error.message)});return()=>{live=false}},[]);
  useEffect(()=>{const refresh=()=>setToday(localDay());const timer=setInterval(refresh,30000);window.addEventListener('focus',refresh);return()=>{clearInterval(timer);window.removeEventListener('focus',refresh)}},[]);
+ useEffect(()=>{if(!celebrate)return;const timer=setTimeout(()=>setCelebrate(0),2600);return()=>clearTimeout(timer)},[celebrate]);
  const todoItems=useMemo(()=>items.filter(item=>!String(item.id).startsWith('reflection-')),[items]);
  const current=useMemo(()=>todoItems.filter(item=>item.date===today),[todoItems,today]);
  const ordered=useMemo(()=>[...current].sort((a,b)=>Number(a.done)-Number(b.done)||priorityWeight(b.priority)-priorityWeight(a.priority)||String(a.createdAt).localeCompare(String(b.createdAt))),[current]);
@@ -86,7 +88,7 @@ export function Todos({onRequireOwner,onSuccess}){
  return <section className="page todosPage">
   <header className="todoHero">
    <div className="todoHeroCopy"><div className="todoDate"><span>DAILY QUEST</span><i>{thaiDate(today)}</i></div><h1>วันนี้เรา<br/><em>จะทำอะไรบ้าง?</em></h1><p>ไม่ต้องทำทุกอย่างพร้อมกัน เลือกหนึ่งข้อ แล้วเริ่มจากตรงนั้น</p><div className={`todoCloud ${ready?'online':''}`}><span/>{ready?'บันทึกกับ Google Sheets แล้ว':'กำลังเชื่อมต่อ Google Sheets…'}</div></div>
-   <div className={`todoMascot ${celebrate?'celebrate':''}`} key={celebrate||'idle'}><span className="todoSpark s1">✦</span><span className="todoSpark s2">✦</span><span className="todoSpark s3">✦</span><img src={todoMascot} alt="เท่กำลังจัดรายการภารกิจที่โต๊ะ"/></div>
+   <div className={`todoMascot ${celebrate?'celebrate':''}`} key={celebrate||'idle'}><span className="todoSpark s1">✦</span><span className="todoSpark s2">✦</span><span className="todoSpark s3">✦</span><img src={celebrate?todoMascotThumbsUp:todoMascot} alt={celebrate?'เท่ชูนิ้วโป้งดีใจที่ทำภารกิจสำเร็จ':'เท่กำลังจัดรายการภารกิจที่โต๊ะ'}/></div>
    <div className="todoScore" style={{'--progress':`${percent}%`}}><div><strong>{percent}%</strong><span>สำเร็จวันนี้</span></div></div>
   </header>
   <nav className="todoViewTabs" aria-label="มุมมอง Todo"><button className={view==='today'?'active':''} onClick={()=>setView('today')}><img src="/goals/plan/checklist.png" alt=""/>วันนี้</button><button className={view==='calendar'?'active':''} onClick={()=>setView('calendar')}><img src="/goals/plan/schedule.png" alt=""/>ปฏิทิน</button></nav>

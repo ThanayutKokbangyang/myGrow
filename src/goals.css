@@ -40,6 +40,8 @@
 .goalsBar{display:flex;gap:14px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-bottom:18px}
 .goalTabs{display:flex;gap:8px;flex-wrap:wrap}
 .goalTabs button[aria-selected=true]{background:#253e53;color:#fff1c1;box-shadow:inset 2px 2px #5b7484,3px 3px #10283a}
+.goalSort{margin-left:auto;display:flex!important;flex-direction:row!important;align-items:center;gap:8px!important;white-space:nowrap;color:#75613f}
+.goalSort select{min-height:38px;padding:6px 31px 6px 10px;border:2px solid #4c5b64;border-radius:0;background:#fff8e5;color:#253a4a;box-shadow:inset 2px 2px #d8cfb9}
 .goalsConn{display:flex;gap:10px;align-items:center;font-size:13px;color:#966c38}
 .goalsConn .connected{color:#397763}
 .goalsConn button{font-size:13px;padding:4px 10px;min-height:34px}
@@ -58,6 +60,8 @@
 .goalWhy{margin:0;font-size:14px;color:#7d6b4c;overflow-wrap:anywhere}
 .goalTools{display:flex;flex-direction:column;gap:6px}
 .goalTools button{font-size:13px;padding:5px 10px;min-height:32px}
+.goalOrder{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.goalOrder button{padding:3px 7px}
 .goalTerm{font:bold 12px 'Courier New',monospace;padding:4px 9px;border:2px solid #bdab7f;background:#f4e6bf;color:#68583b}
 .goalTerm.long{background:#dfe7f5;border-color:#8fa4c6;color:#33507f}
 .goalTerm.short{background:#f7e3d4;border-color:#d0a184;color:#8a4c2c}
@@ -91,7 +95,9 @@
 .planList li.done .planCheck{background:#e3efdd;border-color:#6f8d6a}
 .planList li.done .planTitle{text-decoration:line-through;color:#7c8a76}
 .planList li.done .planBox{background:#3f8a63;color:#fff8e2;border-color:#2b6045;box-shadow:inset 2px 2px #79bb96}
-.planDelete{padding:0 11px;min-height:0;font-size:13px;background:#f0ded9;box-shadow:inset 2px 2px #fff3ec,2px 2px #b58d80}
+.planActions{display:grid;grid-template-columns:repeat(2,32px);gap:5px;align-content:center}
+.planActions button{padding:0;min-height:31px;font-size:13px}
+.planActions .planDelete{background:#f0ded9;box-shadow:inset 2px 2px #fff3ec,2px 2px #b58d80}
 
 .planAdd{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:8px;margin-top:12px;
  padding-top:12px;border-top:2px dashed #cdb98d}
@@ -116,6 +122,7 @@
 .goalModal h2{font-size:22px;margin:0}
 .goalModal header button{min-height:36px;padding:4px 12px}
 .goalFormBody{display:grid;grid-template-columns:auto minmax(0,1fr);gap:16px;align-items:start}
+.planEditBody{display:grid;grid-template-columns:auto minmax(0,1fr);gap:16px;align-items:start}
 .goalArtPick{flex-direction:column;gap:6px;padding:10px;background:#f7e5bd;box-shadow:inset 2px 2px #fffaea,3px 3px #aa8b54}
 .goalArtPick img{width:82px;height:82px;object-fit:contain;image-rendering:pixelated}
 .goalArtPick span{font-size:12px;font-weight:700}
@@ -153,6 +160,10 @@
  .goalsLead{font-size:14px}
  .goalsAdd{margin-left:0;width:100%}
  .goalTabs button{white-space:nowrap;padding:8px 10px}
+ .goalsBar{align-items:stretch}
+ .goalSort{margin-left:0;flex:1 1 210px}
+ .goalSort select{flex:1;min-width:0}
+ .goalsConn{width:100%;justify-content:space-between}
  .goalsStats{grid-template-columns:1fr 1fr;gap:8px}
  .goalsStats>div{padding:10px 12px}
  .goalsStats strong{font-size:22px}
@@ -173,6 +184,7 @@
  .goalsPage .planCheck{grid-template-columns:auto auto minmax(0,1fr);gap:8px}
  .planCheck .goalChip{grid-column:3;grid-row:2;justify-self:start}
  .goalFormBody{grid-template-columns:1fr}
+ .planEditBody{grid-template-columns:1fr}
  .goalArtPick{flex-direction:row;justify-self:start}
  .goalArtPick img{width:56px;height:56px}
  .goalFieldRow{grid-template-columns:1fr}
