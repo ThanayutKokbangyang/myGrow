@@ -1039,8 +1039,11 @@ function LogModal({ initial, onClose, onSave }) {
 }
 
 function HistoryView({ logs, remove }) {
+  const DAYS_PER_PAGE = 7;
   const [filter, setFilter] = useState("all");
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const historyTopRef = useRef(null);
   const q = query.trim().toLowerCase();
   const shown = logs.filter(
     (x) =>
@@ -1058,8 +1061,23 @@ function HistoryView({ logs, remove }) {
     (o[k] ??= []).push(x);
     return o;
   }, {});
+  const dayGroups = Object.entries(grouped);
+  const pageCount = Math.max(1, Math.ceil(dayGroups.length / DAYS_PER_PAGE));
+  const safePage = Math.min(page, pageCount);
+  const pagedGroups = dayGroups.slice(
+    (safePage - 1) * DAYS_PER_PAGE,
+    safePage * DAYS_PER_PAGE,
+  );
+  useEffect(() => setPage(1), [filter, query]);
+  useEffect(() => setPage((current) => Math.min(current, pageCount)), [pageCount]);
+  function goPage(nextPage) {
+    setPage(nextPage);
+    requestAnimationFrame(() =>
+      historyTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+    );
+  }
   return (
-    <section className="page historyPage">
+    <section className="page historyPage" ref={historyTopRef}>
       <p className="eyebrow">LEARNING JOURNAL</p>
       <h1>ทำอะไรไปบ้าง</h1>
       <div className="historyTools">
@@ -1098,7 +1116,7 @@ function HistoryView({ logs, remove }) {
       </div>
       <div className="timeline">
         {shown.length ? (
-          Object.entries(grouped).map(([day, items]) => (
+          pagedGroups.map(([day, items]) => (
             <section className="dayGroup" key={day}>
               <header>
                 <div>
@@ -1172,6 +1190,20 @@ function HistoryView({ logs, remove }) {
           </div>
         )}
       </div>
+      {dayGroups.length > DAYS_PER_PAGE && (
+        <nav className="historyPagination" aria-label="หน้าประวัติกิจกรรม">
+          <button type="button" disabled={safePage === 1} onClick={() => goPage(safePage - 1)}>
+            ‹ ก่อนหน้า
+          </button>
+          <span>
+            หน้า <b>{safePage}</b> / {pageCount}
+            <small>แสดงครั้งละ {DAYS_PER_PAGE} วัน · {shown.length} กิจกรรม</small>
+          </span>
+          <button type="button" disabled={safePage === pageCount} onClick={() => goPage(safePage + 1)}>
+            ถัดไป ›
+          </button>
+        </nav>
+      )}
     </section>
   );
 }
