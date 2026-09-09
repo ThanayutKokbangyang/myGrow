@@ -706,7 +706,7 @@ function Today({
                 )}
               </div>
           ))}
-          {!plans.length&&<div className="task muted"><div><b>ยังไม่มีภารกิจวันนี้</b><small>เพิ่มได้ที่หน้า “ภารกิจวันนี้”</small></div><i className="checkBox" /></div>}
+          {!plans.length&&<div className="task muted"><span style={{background:'#b59a65'}}><PixelIcon name="check" /></span><div><b>ยังไม่มีภารกิจวันนี้</b><small>เพิ่มได้ที่หน้า “ภารกิจวันนี้”</small></div><i className="checkBox" /></div>}
           <button className="primary" onClick={() => setModal({ ...EMPTY })}>
             <PixelIcon name="plus" /> Add activity
           </button>
