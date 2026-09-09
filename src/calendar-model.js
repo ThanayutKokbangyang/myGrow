@@ -1,4 +1,4 @@
-import {dayKey, parseDay} from './day';
+import {dayKey, parseDay} from './day.js';
 
 // All day events. A repeating event is stored once -- a start date plus a rule
 // -- and the days it lands on are worked out here, so the sheet never fills up

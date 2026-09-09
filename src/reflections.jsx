@@ -18,13 +18,15 @@ function Entry({item}){
  </article>;
 }
 
-function ReflectionCalendar({entries,todayKey}){
+function ReflectionCalendar({todayKey}){
  const now=parseDay(todayKey);
+ const [entries,setEntries]=useState([]),[loading,setLoading]=useState(true);
  const [selected,setSelected]=useState(todayKey);
  const [cursor,setCursor]=useState({year:now.getFullYear(),month:now.getMonth()});
  const grouped=useMemo(()=>{const map=new Map();entries.forEach(item=>{const key=String(item.date).slice(0,10);if(!map.has(key))map.set(key,[]);map.get(key).push(item)});return map},[entries]);
  const firstDay=new Date(cursor.year,cursor.month,1).getDay(),monthDays=new Date(cursor.year,cursor.month+1,0).getDate(),previousDays=new Date(cursor.year,cursor.month,0).getDate();
  const cells=Array.from({length:42},(_,index)=>{const number=index-firstDay+1,date=number<1?new Date(cursor.year,cursor.month-1,previousDays+number):number>monthDays?new Date(cursor.year,cursor.month+1,number-monthDays):new Date(cursor.year,cursor.month,number);return {date,key:dateKey(date),current:date.getMonth()===cursor.month}});
+ useEffect(()=>{let live=true;setLoading(true);loadTodos({type:'reflection',start:cells[0].key,end:cells[cells.length-1].key,pageSize:300,refresh:true}).then(result=>{if(live)setEntries(result.items||[])}).catch(()=>{}).finally(()=>{if(live)setLoading(false)});return()=>{live=false}},[cursor.year,cursor.month]);
  const selectedEntries=grouped.get(selected)||[];
  const monthLabel=new Intl.DateTimeFormat('th-TH',{month:'long',year:'numeric'}).format(new Date(cursor.year,cursor.month,1));
  const move=amount=>setCursor(value=>{const date=new Date(value.year,value.month+amount,1);return {year:date.getFullYear(),month:date.getMonth()}});
@@ -38,29 +40,31 @@ function ReflectionCalendar({entries,todayKey}){
   </section>
   <div className="reflectionDayLog">
    <header><img src="/goals/plan/journal.png" alt=""/><div><span>บันทึกของวันที่เลือก</span><h2>{thaiDate(selected)}</h2></div><b>{selectedEntries.length} เรื่อง</b></header>
-   {selectedEntries.length?<div className="reflectionEntries">{selectedEntries.map(item=><Entry key={item.id} item={item}/>)}</div>:<div className="reflectionEmpty compact"><img src="/goals/plan/schedule.png" alt=""/><h3>วันนี้ไม่มีคำสารภาพ</h3><p>ไม่มีบันทึกไม่ได้แปลว่าไม่มีความผิด แต่อาจเป็นวันที่เราทำตามที่ตั้งใจไว้</p></div>}
+   {selectedEntries.length?<div className="reflectionEntries">{selectedEntries.map(item=><Entry key={item.id} item={item}/>)}</div>:<div className="reflectionEmpty compact"><img src="/goals/plan/schedule.png" alt=""/><h3>{loading?'กำลังโหลดจาก Google Sheets…':'วันนี้ไม่มีคำสารภาพ'}</h3><p>ไม่มีบันทึกไม่ได้แปลว่าไม่มีความผิด แต่อาจเป็นวันที่เราทำตามที่ตั้งใจไว้</p></div>}
   </div>
  </div>;
 }
 
 export function Reflections({onRequireOwner}){
- const cached=getCachedTodos();
- const [allItems,setAllItems]=useState(()=>cached||[]),[form,setForm]=useState(emptyForm),[busy,setBusy]=useState(false),[ready,setReady]=useState(()=>cached!==null),[message,setMessage]=useState(''),[view,setView]=useState('today');
+ const options={date:dayKey(),type:'reflection',pageSize:100,summary:1};
+ const cached=getCachedTodos(options);
+ const [allItems,setAllItems]=useState(()=>cached?.items||[]),[form,setForm]=useState(emptyForm),[busy,setBusy]=useState(false),[ready,setReady]=useState(()=>cached!==null),[message,setMessage]=useState(''),[view,setView]=useState('today');
+ const [summary,setSummary]=useState({total:0,days:0});
  const [todayKey,setTodayKey]=useState(dayKey);
- useEffect(()=>{let live=true;loadTodos().then(items=>{if(live){setAllItems(items);setReady(true)}}).catch(error=>setMessage(error.message));return()=>{live=false}},[]);
+ useEffect(()=>{let live=true;loadTodos({date:todayKey,type:'reflection',pageSize:100,summary:1}).then(result=>{if(live){setAllItems(result.items||[]);setSummary(result.summary||{});setReady(true)}}).catch(error=>setMessage(error.message));return()=>{live=false}},[todayKey]);
  useEffect(()=>{const refresh=()=>setTodayKey(dayKey());const timer=setInterval(refresh,30000);window.addEventListener('focus',refresh);return()=>{clearInterval(timer);window.removeEventListener('focus',refresh)}},[]);
  const entries=useMemo(()=>allItems.filter(item=>String(item.id).startsWith('reflection-')).sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt))),[allItems]);
  const todayEntries=entries.filter(item=>String(item.date).slice(0,10)===todayKey);
- const daysCount=new Set(entries.map(item=>String(item.date).slice(0,10))).size;
+ const daysCount=summary.days||0;
  const repeats=useMemo(()=>{const counts=new Map();entries.forEach(item=>{const cause=unpack(item.detail).cause.trim().toLocaleLowerCase('th');if(cause)counts.set(cause,(counts.get(cause)||0)+1)});return [...counts.entries()].filter(([,count])=>count>1).sort((a,b)=>b[1]-a[1])},[entries]);
  const set=(key,value)=>setForm(current=>({...current,[key]:value}));
- async function persist(next){setBusy(true);setMessage('');try{const result=await applyTodos(next);setAllItems(result.items||next);return true}catch(error){if(error.status===401){onRequireOwner?.(()=>persist(next));return false}setMessage(error.message);return false}finally{setBusy(false)}}
+ async function persist(next){const before=new Map(allItems.map(item=>[item.id,item])),after=new Map(next.map(item=>[item.id,item])),changes=[];for(const item of next)if(JSON.stringify(before.get(item.id))!==JSON.stringify(item))changes.push({type:'upsert',id:item.id,item});for(const item of allItems)if(!after.has(item.id))changes.push({type:'delete',id:item.id});setBusy(true);setMessage('');try{await applyTodos(changes);setAllItems(next);setSummary(value=>({...value,total:(value.total||0)+Math.max(0,next.length-allItems.length)}));return true}catch(error){if(error.status===401){onRequireOwner?.(()=>persist(next));return false}setMessage(error.message);return false}finally{setBusy(false)}}
  async function submit(event){event.preventDefault();if(!form.mistake.trim()||!form.repair.trim()||busy)return;const item={id:newId(),date:todayKey,title:form.mistake.trim().slice(0,160),detail:JSON.stringify({cause:form.cause.trim(),cost:form.cost.trim(),repair:form.repair.trim()}).slice(0,400),category:'life',priority:'high',done:false,createdAt:new Date().toISOString()};if(await persist([...allItems,item])){setForm(emptyForm());setMessage('บันทึกความจริงไว้แล้ว พรุ่งนี้ตอบมันด้วยการลงมือ')}}
  return <section className="page reflectionsPage">
   <header className="reflectionHero">
    <div className="reflectionHeroCopy"><span className="reflectionEyebrow">THE HONEST ROOM</span><h1>วันนี้เราปล่อย<br/><em>อะไรให้หลุดมือ?</em></h1><p>ไม่ได้เขียนเพื่อเกลียดตัวเอง แต่เขียนเพื่อหยุดข้ออ้างเดิม ก่อนมันเอาวันพรุ่งนี้ไปอีกวัน</p><div className={`reflectionCloud ${ready?'online':''}`}><i/>{ready?'เก็บบันทึกไว้ใน Google Sheets':'กำลังเปิดสมุดบันทึก…'}</div></div>
    <div className="reflectionScene"><span className="reflectionTick t1">ติ๊ก</span><span className="reflectionTick t2">ต่อก</span><img src={reflectionArt} alt="เท่นั่งทบทวนวันที่ปล่อยเวลาให้ผ่านไป"/></div>
-   <div className="reflectionCount"><strong>{entries.length}</strong><span>ครั้งที่เรา<br/>ไม่หลอกตัวเอง</span></div>
+   <div className="reflectionCount"><strong>{summary.total||entries.length}</strong><span>ครั้งที่เรา<br/>ไม่หลอกตัวเอง</span></div>
   </header>
   <nav className="reflectionTabs" aria-label="มุมมองห้องสารภาพ"><button className={view==='today'?'active':''} onClick={()=>setView('today')}><img src="/goals/plan/journal.png" alt=""/>วันนี้</button><button className={view==='calendar'?'active':''} onClick={()=>setView('calendar')}><img src="/goals/plan/schedule.png" alt=""/>ปฏิทิน</button></nav>
 
@@ -77,10 +81,10 @@ export function Reflections({onRequireOwner}){
 
    <div className="reflectionArchive">
     <header><div><span>ACCOUNTABILITY LOG</span><h2>สิ่งที่เราเคยสัญญาว่าจะไม่ทำซ้ำ</h2></div><b>{todayEntries.length} วันนี้</b></header>
-    <div className="reflectionStats"><div><strong>{daysCount}</strong><span>วันที่ยอมรับความพลาด</span></div><div><strong>{entries.length}</strong><span>เรื่องที่บันทึกทั้งหมด</span></div><div className={repeats.length?'warning':''}><strong>{repeats.length}</strong><span>ต้นเหตุที่เกิดซ้ำ</span></div></div>
+    <div className="reflectionStats"><div><strong>{daysCount}</strong><span>วันที่ยอมรับความพลาด</span></div><div><strong>{summary.total||entries.length}</strong><span>เรื่องที่บันทึกทั้งหมด</span></div><div className={repeats.length?'warning':''}><strong>{repeats.length}</strong><span>ต้นเหตุที่เกิดซ้ำวันนี้</span></div></div>
     {repeats.length>0&&<div className="reflectionRepeat"><img src="/ui/pixel/flame.png" alt=""/><span><b>ต้นเหตุที่กลับมาบ่อยที่สุด</b>“{repeats[0][0]}” เกิดขึ้น {repeats[0][1]} ครั้ง</span></div>}
     {todayEntries.length?<div className="reflectionEntries todayOnly">{todayEntries.map(item=><Entry key={item.id} item={item}/>)}</div>:<div className="reflectionEmpty"><img src="/ui/pixel/brain.png" alt=""/><h3>วันนี้ยังไม่มีบันทึก</h3><p>ถ้าวันนี้พลาด ยอมรับตามจริงหนึ่งเรื่อง แล้วกำหนดการแก้ที่ทำได้ทันที</p></div>}
    </div>
-  </div>:<ReflectionCalendar entries={entries} todayKey={todayKey}/>} 
+  </div>:<ReflectionCalendar todayKey={todayKey}/>}
  </section>;
 }

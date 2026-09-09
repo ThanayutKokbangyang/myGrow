@@ -96,11 +96,13 @@ function EventModal({initial,onSave,onDelete,onClose}){
 }
 
 export function Calendar({onRequireOwner,onSuccess}){
- const {items,ready,busy,message,persist,refresh}=useSheetCalendar(onRequireOwner);
  const [today,setToday]=useState(dayKey);
  const [selected,setSelected]=useState(dayKey);
  const [cursor,setCursor]=useState(()=>{const d=parseDay(dayKey());return {year:d.getFullYear(),month:d.getMonth()+1}});
  const [editing,setEditing]=useState(null);
+ const grid=useMemo(()=>monthGrid(cursor.year,cursor.month),[cursor]);
+ const range=useMemo(()=>({start:grid[0].key,end:grid[grid.length-1].key}),[grid]);
+ const {items,ready,busy,message,persist,refresh}=useSheetCalendar(onRequireOwner,range);
 
  // The 05:00 day boundary can roll over while the page is open.
  useEffect(()=>{
@@ -110,7 +112,6 @@ export function Calendar({onRequireOwner,onSuccess}){
   return()=>{clearInterval(timer);removeEventListener('focus',tick)};
  },[]);
 
- const grid=useMemo(()=>monthGrid(cursor.year,cursor.month),[cursor]);
  const byDay=useMemo(()=>{
   const map=new Map();
   for(const cell of grid)map.set(cell.key,eventsOn(items,cell.key));

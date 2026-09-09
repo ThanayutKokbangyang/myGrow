@@ -122,14 +122,14 @@ async function handleApi(request, env, url) {
     const action=request.method==='GET'?'list':body?.action;
     if(!['list','upsert','delete','review','import','uploadImage'].includes(action))return json({error:'ไม่พบการทำงานนี้'},400);
     if(request.method==='POST'&&action==='list')return json({error:'ใช้ GET เพื่ออ่านคำศัพท์'},400);
-    try{return json(await sheetRequest(env, {action:'cards_'+action,card:body?.card,cards:body?.cards,id:body?.id,remembered:body?.remembered,reviewId:body?.reviewId,image:body?.image}));}
+    try{return json(await sheetRequest(env, {action:'cards_'+action,card:body?.card,cards:body?.cards,id:body?.id,remembered:body?.remembered,reviewId:body?.reviewId,image:body?.image,mode:url.searchParams.get('mode'),page:url.searchParams.get('page'),pageSize:url.searchParams.get('pageSize'),query:url.searchParams.get('query'),tag:url.searchParams.get('tag'),day:url.searchParams.get('day')}));}
     catch(error){return json({error:error.message==='ACTION_INVALID'?'กรุณาอัปเดต Apps Script ให้รองรับ Vocabulary ก่อน':error.message},503);}
   }
   if (url.pathname === '/api/calendar' && ['GET','POST'].includes(request.method)) {
     if (request.method === 'POST' && !(await validToken(request, env))) return json({error:'กรุณายืนยันว่าเป็นเท่ก่อนบันทึก'},401);
     const body=request.method==='POST'?await request.json().catch(()=>null):null;
     if(request.method==='POST' && (!Array.isArray(body?.changes)||!body.changes.length||body.changes.length>500))return json({error:'ข้อมูลไม่ถูกต้อง'},400);
-    try { return json(await sheetRequest(env, {action:request.method==='GET'?'calendar_list':'calendar_apply',changes:body?.changes})); }
+    try { return json(await sheetRequest(env, {action:request.method==='GET'?'calendar_list':'calendar_apply',changes:body?.changes,start:url.searchParams.get('start'),end:url.searchParams.get('end'),page:url.searchParams.get('page'),pageSize:url.searchParams.get('pageSize')})); }
     catch(error){return json({error:error.message==='ACTION_INVALID'?'กรุณาอัปเดตและ Deploy Apps Script เวอร์ชัน Calendar ก่อน':error.message},503);}
   }
   if (url.pathname === '/api/goals' && ['GET','POST'].includes(request.method)) {
@@ -143,22 +143,26 @@ async function handleApi(request, env, url) {
     if (request.method === 'POST' && !(await validToken(request, env))) return json({error:'กรุณายืนยันว่าเป็นเท่ก่อนบันทึก'},401);
     const body=request.method==='POST'?await request.json().catch(()=>null):null;
     if(request.method==='POST' && (!Array.isArray(body?.changes)||body.changes.length>1000))return json({error:'ข้อมูลไม่ถูกต้อง'},400);
-    try { return json(await sheetRequest(env, {action:request.method==='GET'?'todos_list':'todos_apply',changes:body?.changes})); }
+    try { return json(await sheetRequest(env, {action:request.method==='GET'?'todos_list':'todos_apply',changes:body?.changes,type:url.searchParams.get('type'),date:url.searchParams.get('date'),start:url.searchParams.get('start'),end:url.searchParams.get('end'),page:url.searchParams.get('page'),pageSize:url.searchParams.get('pageSize'),summary:url.searchParams.get('summary')==='1'})); }
     catch(error){return json({error:error.message==='ACTION_INVALID'?'กรุณาอัปเดตและ Deploy Apps Script เวอร์ชัน Todos ก่อน':error.message},503);}
   }
   if (url.pathname === '/api/wins' && ['GET','POST'].includes(request.method)) {
     if (request.method === 'POST' && !(await validToken(request, env))) return json({error:'กรุณายืนยันว่าเป็นเท่ก่อนบันทึก'},401);
     const body=request.method==='POST'?await request.json().catch(()=>null):null;
     if(request.method==='POST' && (!Array.isArray(body?.changes)||body.changes.length>1000))return json({error:'ข้อมูลไม่ถูกต้อง'},400);
-    try { return json(await sheetRequest(env, {action:request.method==='GET'?'wins_list':'wins_apply',changes:body?.changes})); }
+    try { return json(await sheetRequest(env, {action:request.method==='GET'?'wins_list':'wins_apply',changes:body?.changes,date:url.searchParams.get('date'),start:url.searchParams.get('start'),end:url.searchParams.get('end'),page:url.searchParams.get('page'),pageSize:url.searchParams.get('pageSize'),summary:url.searchParams.get('summary')==='1'})); }
     catch(error){return json({error:error.message==='ACTION_INVALID'?'กรุณาอัปเดตและ Deploy Apps Script เวอร์ชัน SmallWins ก่อน':error.message},503);}
   }
   if (url.pathname === "/api/activities" && request.method === "GET") {
     try {
-      return json(await sheetRequest(env, { action: "list" }));
+      return json(await sheetRequest(env, { action:"list", page:url.searchParams.get('page'), pageSize:url.searchParams.get('pageSize'), skill:url.searchParams.get('skill'), query:url.searchParams.get('query') }));
     } catch (error) {
       return json({ error: error.message }, 503);
     }
+  }
+  if (url.pathname === "/api/dashboard" && request.method === "GET") {
+    try{return json(await sheetRequest(env,{action:"dashboard_summary",refresh:url.searchParams.get("refresh")==="1"}));}
+    catch(error){return json({error:error.message},503);}
   }
   if (url.pathname === "/api/activities" && request.method === "POST") {
     if (!(await validToken(request, env)))

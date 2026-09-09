@@ -122,3 +122,4 @@
 .fcStats{grid-template-columns:repeat(3,minmax(0,1fr))}
 @media(max-width:640px){.fcChoices{grid-template-columns:1fr}.fcRecallPrompt{min-height:110px}.fcStats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(prefers-reduced-motion:reduce){.fcSessionProgress i{transition:none}}
+.fcPagination{display:flex;align-items:center;justify-content:center;gap:14px;margin:20px 0}.fcPagination span{display:grid;text-align:center;font-size:14px}.fcPagination small{font-size:11px;color:#887450}.fcPagination b{font-family:'Courier New',monospace;color:#337f72}

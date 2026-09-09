@@ -1,4 +1,4 @@
-import {dayKey,dayStart} from './day';
+import {dayKey,dayStart} from './day.js';
 
 // Goals and the plan steps under them share one Sheet tab and one list here:
 // a row with an empty goalId is a goal, anything else is a step of that goal.
