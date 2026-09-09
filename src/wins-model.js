@@ -1,4 +1,4 @@
-import {dayKey,parseDay} from './day';
+import {dayKey,parseDay} from './day.js';
 export const WIN_CATEGORIES = [
   {id:'health', label:'สุขภาพ', icon:'heart', color:'#d75b62'},
   {id:'learning', label:'การเรียน', icon:'book', color:'#3c86bc'},

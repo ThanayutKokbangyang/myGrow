@@ -1,4 +1,3 @@
-const SPREADSHEET_ID = '1jWHos16PvXbCAjN0CMLbzzl1GmehH90zF75uDHxwyKg';
 const SHEET_NAME = 'Activities';
 const HEADERS = ['id','date_iso','date_th','skill','topic','minutes','before','after','improvement','difficulty','learned','problem','next','xp','created_by','updated_at'];
 
@@ -16,7 +15,8 @@ function doPost(e) {
     if (body.action === 'goals_list' || body.action === 'goals_apply') return response_(goals_(body));
     if (body.action === 'calendar_list' || body.action === 'calendar_apply') return response_(calendar_(body));
     if (body.action === 'todos_list' || body.action === 'todos_apply') return response_(todos_(body));
-    if (body.action === 'list') return response_({ ok: true, items: listActivities_() });
+    if (body.action === 'dashboard_summary') return response_(dashboardSummary_(body));
+    if (body.action === 'list') return response_(listActivities_(body));
     if (body.action === 'append') return response_({ ok: true, item: appendActivity_(body.item || {}) });
     if (body.action === 'delete') return response_({ ok: true, deleted: deleteActivity_(String(body.id || '')) });
     return response_({ ok: false, error: 'ACTION_INVALID' });
@@ -25,18 +25,84 @@ function doPost(e) {
   }
 }
 
+function int_(value, fallback, min, max) {
+  const number = Number(value);
+  if (!isFinite(number)) return fallback;
+  return Math.max(min, Math.min(max, Math.floor(number)));
+}
+
+function page_(items, body, defaultSize, maxSize) {
+  const requestedPage = int_(body && body.page, 1, 1, 1000000);
+  const pageSize = int_(body && body.pageSize, defaultSize, 1, maxSize);
+  const total = items.length;
+  const pages = Math.max(1, Math.ceil(total / pageSize));
+  const current = Math.min(requestedPage, pages);
+  const start = (current - 1) * pageSize;
+  return { items: items.slice(start, start + pageSize), page: current, pageSize: pageSize, total: total, pages: pages };
+}
+
+function clearDashboardCache_() {
+  CacheService.getScriptCache().remove('dashboard-summary-v2');
+}
+
 function sheet_() {
-  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_NAME);
+  const sheet = SpreadsheetApp.openById(spreadsheetId_()).getSheetByName(SHEET_NAME);
   if (!sheet) throw new Error('ไม่พบชีต Activities');
   return sheet;
 }
 
-function listActivities_() {
+function spreadsheetId_() {
+  const id = PropertiesService.getScriptProperties().getProperty('GROW_ROOM_SPREADSHEET_ID');
+  if (!id) throw new Error('ยังไม่ได้ตั้งค่า GROW_ROOM_SPREADSHEET_ID');
+  return id;
+}
+
+function activityRows_() {
   const sheet = sheet_();
   if (sheet.getLastRow() < 2) return [];
   return sheet.getRange(2, 1, sheet.getLastRow() - 1, HEADERS.length).getValues()
     .filter(row => String(row[0] || '').trim())
     .map(row => rowToActivity_(row));
+}
+
+function listActivities_(body) {
+  const skill = String(body && body.skill || '').trim().toLowerCase();
+  const query = String(body && body.query || '').trim().toLowerCase().slice(0, 120);
+  const items = activityRows_().sort((a, b) => String(b.date).localeCompare(String(a.date))).filter(item => {
+    if (skill && skill !== 'all' && item.skill !== skill) return false;
+    if (!query) return true;
+    return [item.topic,item.learned,item.problem,item.next,item.skill].join(' ').toLowerCase().indexOf(query) >= 0;
+  });
+  const result = page_(items, body, 40, 100);
+  result.ok = true;
+  return result;
+}
+
+function dashboardSummary_(body) {
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get('dashboard-summary-v2');
+  if (cached && !(body && body.refresh)) return JSON.parse(cached);
+  const activities = activityRows_();
+  const now = new Date();
+  const today = Utilities.formatDate(new Date(now.getTime() - (Number(Utilities.formatDate(now, TZ_, 'H')) < DAY_START_HOUR_ ? 86400000 : 0)), TZ_, 'yyyy-MM-dd');
+  const totals = { english:0, coding:0, math:0, cognitive:0 };
+  const days = {};
+  let gain = 0, minutes = 0;
+  activities.forEach(item => {
+    const value = Number(item.minutes) || 0;
+    minutes += value;
+    if (Object.prototype.hasOwnProperty.call(totals, item.skill)) totals[item.skill] += value;
+    gain += (Number(item.after) || 0) - (Number(item.before) || 0);
+    const key = Utilities.formatDate(new Date(item.date), TZ_, 'yyyy-MM-dd');
+    days[key] = true;
+  });
+  let streak = 0;
+  const cursor = new Date(today + 'T12:00:00+07:00');
+  if (!days[today]) cursor.setDate(cursor.getDate() - 1);
+  while (days[Utilities.formatDate(cursor, TZ_, 'yyyy-MM-dd')]) { streak++; cursor.setDate(cursor.getDate() - 1); }
+  const result = {ok:true,today:today,todayItems:activities.filter(item=>Utilities.formatDate(new Date(item.date),TZ_,'yyyy-MM-dd')===today),summary:{total:activities.length,minutes:minutes,gain:activities.length?Number((gain/activities.length).toFixed(1)):0,activeDays:Object.keys(days).length,streak:streak,xp:minutes*2,totals:totals}};
+  cache.put('dashboard-summary-v2', JSON.stringify(result), 300);
+  return result;
 }
 
 function appendActivity_(input) {
@@ -57,6 +123,7 @@ function appendActivity_(input) {
   if (!item.topic || item.minutes < 1) throw new Error('ข้อมูลกิจกรรมไม่ครบ');
   const row = [item.id,item.date,Utilities.formatDate(new Date(item.date),'Asia/Bangkok','dd/MM/yyyy'),item.skill,item.topic,item.minutes,item.before,item.after,item.after-item.before,item.difficulty,item.learned,item.problem,item.next,item.minutes*2,'Tae',now.toISOString()];
   sheet_().appendRow(row);
+  clearDashboardCache_();
   return item;
 }
 
@@ -67,6 +134,7 @@ function deleteActivity_(id) {
   const index = ids.findIndex(row => row[0] === id);
   if (index < 0) return false;
   sheet.deleteRow(index + 2);
+  clearDashboardCache_();
   return true;
 }
 
@@ -111,7 +179,7 @@ function todos_(body) {
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
-    const book = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const book = SpreadsheetApp.openById(spreadsheetId_());
     let sheet = book.getSheetByName('Todos');
     if (!sheet) {
       sheet = book.insertSheet('Todos');
@@ -126,9 +194,9 @@ function todos_(body) {
     const read = () => sheet.getLastRow() < 2 ? [] : sheet
       .getRange(2, 1, sheet.getLastRow() - 1, TODO_HEADERS.length)
       .getDisplayValues()
-      .filter(row => String(row[0] || '').trim())
-      .map(row => ({
-        id: String(row[0]),
+      .map((row,index) => ({
+        row: index + 2,
+        id: String(row[0] || '').replace(/^'/,''),
         date: String(row[1]),
         title: String(row[2]),
         detail: String(row[3] || ''),
@@ -136,32 +204,45 @@ function todos_(body) {
         priority: String(row[5] || 'normal'),
         done: row[6] === true || String(row[6]).toLowerCase() === 'true',
         createdAt: String(row[7] || '')
-      }));
+      })).filter(item => item.id);
 
-    if (body.action === 'todos_list') return { ok: true, items: read() };
-
-    const items = body.changes;
-    if (!Array.isArray(items) || items.length > 1000) throw new Error('INVALID_CHANGES');
-    const clean = items.map(todoInput_);
-    const keep = {};
-    clean.forEach(item => { keep[item.id] = true; });
-
-    // หน้าเว็บส่งรายการล่าสุดมาทั้งชุด รายการที่หายไปจึงหมายถึงผู้ใช้กดลบ
-    for (let row = sheet.getLastRow(); row >= 2; row--) {
-      const rowId = String(sheet.getRange(row, 1).getValue() || '');
-      if (rowId && !keep[rowId]) sheet.deleteRow(row);
+    if (body.action === 'todos_list') {
+      const type = String(body.type || 'todo');
+      const start = String(body.start || body.date || '');
+      const end = String(body.end || body.date || '');
+      const all = read();
+      const filtered = all.filter(item => {
+        const reflection = item.id.indexOf('reflection-') === 0;
+        if (type === 'reflection' ? !reflection : reflection) return false;
+        return (!start || item.date >= start) && (!end || item.date <= end);
+      }).sort((a,b)=>String(b.date+b.createdAt).localeCompare(String(a.date+a.createdAt))).map(item=>{const copy=Object.assign({},item);delete copy.row;return copy;});
+      const result = page_(filtered, body, 100, 300);
+      result.ok = true;
+      if (body.summary) {
+        const scoped = all.filter(item => (type === 'reflection') === (item.id.indexOf('reflection-') === 0));
+        result.summary = { total:scoped.length, days:new Set(scoped.map(item=>item.date)).size, done:scoped.filter(item=>item.done).length };
+      }
+      return result;
     }
 
-    clean.forEach(item => {
-      const rows = read();
-      const index = rows.findIndex(row => row.id === item.id);
-      const row = index >= 0 ? index + 2 : sheet.getLastRow() + 1;
+    const ops = body.changes;
+    if (!Array.isArray(ops) || !ops.length || ops.length > 100) throw new Error('INVALID_CHANGES');
+    ops.forEach(op=>{if(!op||['upsert','delete'].indexOf(op.type)<0||!String(op.id||'')||String(op.id).length>100)throw new Error('INVALID_ID');if(op.type==='upsert'&&todoInput_(op.item).id!==op.id)throw new Error('INVALID_ID');});
+    let rows = read();
+    const changed = [];
+    ops.forEach(op => {
+      const found = rows.find(item=>item.id===op.id);
+      if(op.type==='delete'){
+        if(found){sheet.deleteRow(found.row);rows=rows.filter(item=>item.id!==op.id).map(item=>item.row>found.row?Object.assign({},item,{row:item.row-1}):item);}
+        return;
+      }
+      const item=todoInput_(op.item);
+      const row=found?found.row:sheet.getLastRow()+1;
       const now = new Date().toISOString();
-      if (!item.createdAt) item.createdAt = now;
+      item.createdAt = found ? found.createdAt : (item.createdAt || now);
       if (row > sheet.getMaxRows()) sheet.insertRowsAfter(sheet.getMaxRows(), 100);
       const range = sheet.getRange(row, 1, 1, TODO_HEADERS.length);
       range.setNumberFormat('@');
-      // เก็บข้อความเป็น literal เพื่อไม่ให้ค่าที่ขึ้นต้นด้วย = กลายเป็นสูตร
       range.setValues([[
         "'" + item.id,
         "'" + item.date,
@@ -173,8 +254,10 @@ function todos_(body) {
         "'" + item.createdAt,
         "'" + now
       ]]);
+      changed.push(item);
+      if(!found)rows.push(Object.assign({row:row},item));
     });
-    return { ok: true, items: read() };
+    return { ok: true, items: changed, deleted: ops.filter(op=>op.type==='delete').map(op=>op.id) };
   } finally {
     lock.releaseLock();
   }
@@ -184,12 +267,17 @@ function todos_(body) {
 function smallWins_(body) {
   const lock = LockService.getScriptLock(); lock.waitLock(30000);
   try {
-    const book = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const book = SpreadsheetApp.openById(spreadsheetId_());
     let sheet = book.getSheetByName('SmallWins');
     if (!sheet) { sheet = book.insertSheet('SmallWins'); sheet.appendRow(['id','date','category','text','updated_at']); sheet.setFrozenRows(1); }
-    const read = () => sheet.getLastRow()<2 ? [] : sheet.getRange(2,1,sheet.getLastRow()-1,5).getDisplayValues().filter(r=>r[0]).map(r=>({id:r[0],date:r[1],category:r[2],text:r[3]}));
-    if (String(body.action || '').indexOf('cards_') === 0) return response_(flashcards_(body));
-    if (body.action === 'wins_list') return {ok:true,items:read()};
+    const read = () => sheet.getLastRow()<2 ? [] : sheet.getRange(2,1,sheet.getLastRow()-1,5).getDisplayValues().map((r,i)=>({row:i+2,id:String(r[0]||'').replace(/^'/,''),date:r[1],category:r[2],text:r[3]})).filter(x=>x.id);
+    if (body.action === 'wins_list') {
+      const start=String(body.start||body.date||''),end=String(body.end||body.date||'');
+      const all=read(),items=all.filter(w=>(!start||w.date>=start)&&(!end||w.date<=end)).sort((a,b)=>String(b.date).localeCompare(String(a.date))).map(w=>({id:w.id,date:w.date,category:w.category,text:w.text}));
+      const result=page_(items,body,100,300);result.ok=true;
+      if(body.summary)result.summary={total:all.length,days:new Set(all.map(w=>w.date)).size};
+      return result;
+    }
     const ops = body.changes;
     if (!Array.isArray(ops) || ops.length>1000) throw new Error('INVALID_CHANGES');
     ops.forEach(op=>{
@@ -201,17 +289,20 @@ function smallWins_(body) {
         if(isNaN(parsed.getTime())||Utilities.formatDate(parsed,'UTC','yyyy-MM-dd')!==w.date)throw new Error('INVALID_DATE');
       }
     });
+    let rows=read();const changed=[];
     ops.forEach(op=>{
-      const rows=read(), index=rows.findIndex(w=>w.id===op.id);
-      if (op.type==='delete') { if(index>=0)sheet.deleteRow(index+2); return; }
-      if(index>=0 && op.createOnly)return;
-      const w=op.item,row=index>=0?index+2:sheet.getLastRow()+1;
+      const found=rows.find(w=>w.id===op.id);
+      if (op.type==='delete') { if(found){sheet.deleteRow(found.row);rows=rows.filter(w=>w.id!==op.id).map(w=>w.row>found.row?Object.assign({},w,{row:w.row-1}):w);} return; }
+      if(found && op.createOnly)return;
+      const w=op.item,row=found?found.row:sheet.getLastRow()+1;
       if(row>sheet.getMaxRows())sheet.insertRowsAfter(sheet.getMaxRows(),100);
       const range=sheet.getRange(row,1,1,5);range.setNumberFormat('@');
       // Leading apostrophe forces user text to remain literal, including '=...'.
       range.setValues([[w.id,w.date,w.category,w.text.trim(),new Date().toISOString()].map(v=>"'"+v)]);
+      changed.push({id:w.id,date:w.date,category:w.category,text:w.text.trim()});
+      if(!found)rows.push({row:row,id:w.id,date:w.date,category:w.category,text:w.text.trim()});
     });
-    return {ok:true,items:read()};
+    return {ok:true,items:changed,deleted:ops.filter(op=>op.type==='delete').map(op=>op.id)};
   } finally { lock.releaseLock(); }
 }
 
@@ -247,11 +338,18 @@ function cardInput_(input) {
   if(c.level>5||c.correct>c.attempts)throw new Error('ข้อมูลความคืบหน้าไม่ถูกต้อง');
   return c;
 }
+function findCardRow_(sheet,id){
+  if(!id||sheet.getLastRow()<2)return 0;
+  const column=sheet.getRange(2,1,sheet.getLastRow()-1,1);
+  if(column.createTextFinder){const hit=column.createTextFinder(String(id)).matchEntireCell(true).matchCase(true).findNext();return hit?hit.getRow():0;}
+  const ids=column.getDisplayValues();for(let i=0;i<ids.length;i++)if(String(ids[i][0]).replace(/^'/,'')===String(id))return i+2;
+  return 0;
+}
 function flashcards_(body) {
   if(body.action==='cards_uploadImage')return cardImage_(body.image);
   const lock=LockService.getScriptLock();lock.waitLock(30000);
   try {
-    const book=SpreadsheetApp.openById(SPREADSHEET_ID);let sheet=book.getSheetByName('Vocabulary');
+    const book=SpreadsheetApp.openById(spreadsheetId_());let sheet=book.getSheetByName('Vocabulary');
     if(!sheet){sheet=book.insertSheet('Vocabulary');sheet.getRange(1,1,1,CARD_HEADERS.length).setValues([CARD_HEADERS]);sheet.setFrozenRows(1);}
     // Add createdAt to existing Vocabulary sheets without moving legacy data.
     let headers=sheet.getRange(1,1,1,CARD_HEADERS.length).getDisplayValues()[0];
@@ -260,31 +358,39 @@ function flashcards_(body) {
     }
     // Refuse to write if a manually changed schema could shift existing data.
     if(headers.join('|')!==CARD_HEADERS.join('|'))throw new Error('หัวตาราง Vocabulary ไม่ตรงกับเวอร์ชันนี้');
-    const read=()=>sheet.getLastRow()<2?[]:sheet.getRange(2,1,sheet.getLastRow()-1,CARD_HEADERS.length).getValues().map((row,i)=>({row:i+2,card:Object.fromEntries(CARD_HEADERS.map((h,j)=>[h,row[j]]))})).filter(x=>x.card.id).map(x=>({row:x.row,card:cardInput_(x.card)}));
-    const existing=read(),lookup=new Map(existing.map(x=>[String(x.card.id),x]));
+    const readAll=()=>sheet.getLastRow()<2?[]:sheet.getRange(2,1,sheet.getLastRow()-1,CARD_HEADERS.length).getValues().map((row,i)=>({row:i+2,card:Object.fromEntries(CARD_HEADERS.map((h,j)=>[h,row[j]]))})).filter(x=>x.card.id).map(x=>({row:x.row,card:cardInput_(x.card)}));
+    const readRow=row=>{const values=sheet.getRange(row,1,1,CARD_HEADERS.length).getValues()[0];return cardInput_(Object.fromEntries(CARD_HEADERS.map((h,j)=>[h,values[j]])));};
     const write=(c,row)=>{if(row>sheet.getMaxRows())sheet.insertRowsAfter(sheet.getMaxRows(),100);const now=new Date().toISOString();c.createdAt=c.createdAt||c.updatedAt||now;c.updatedAt=now;const values=CARD_HEADERS.map(h=>typeof c[h]==='number'?c[h]:"'"+String(c[h]??''));sheet.getRange(row,1,1,CARD_HEADERS.length).setValues([values]);};
-    if(body.action==='cards_list')return {ok:true,cards:existing.map(x=>x.card)};
-    if(body.action==='cards_upsert'){
-      const c=cardInput_(body.card),old=lookup.get(c.id);
-      // Editing text must not reset review progress.
-      ['level','due','correct','attempts','lastReviewId'].forEach(h=>c[h]=old?old.card[h]:(h==='lastReviewId'?'':0));
-      c.createdAt=old?(old.card.createdAt||old.card.updatedAt):c.createdAt;
-      write(c,old?old.row:sheet.getLastRow()+1);return {ok:true,card:c};
+    if(body.action==='cards_list'){
+      const all=readAll().map(x=>x.card),now=Date.now(),query=String(body.query||'').trim().toLowerCase().slice(0,120),tag=String(body.tag||'all'),day=String(body.day||'all'),mode=String(body.mode||'study');
+      const filtered=all.filter(c=>(tag==='all'||c.tag===tag)&&(day==='all'||String(c.createdAt||c.updatedAt).slice(0,10)===day)&&(!query||[c.word,c.meaning,c.tag].join(' ').toLowerCase().indexOf(query)>=0)&&(mode!=='study'||Number(c.due)<=now)).sort((a,b)=>mode==='study'?Number(a.due)-Number(b.due):String(b.createdAt||b.updatedAt).localeCompare(String(a.createdAt||a.updatedAt)));
+      const result=page_(filtered,body,mode==='study'?100:50,mode==='study'?200:100);
+      const levels=[0,0,0,0,0,0];let attempts=0,correct=0,nextDue=0,dueTotal=0;const tags={},days={};
+      all.forEach(c=>{const level=Math.max(0,Math.min(5,Number(c.level)||0));levels[level]++;attempts+=Number(c.attempts)||0;correct+=Number(c.correct)||0;if(Number(c.due)<=now)dueTotal++;else if(!nextDue||Number(c.due)<nextDue)nextDue=Number(c.due);tags[c.tag]=(tags[c.tag]||0)+1;const key=String(c.createdAt||c.updatedAt).slice(0,10)||'unknown';days[key]=(days[key]||0)+1;});
+      return {ok:true,cards:result.items,page:result.page,pageSize:result.pageSize,total:result.total,pages:result.pages,meta:{total:all.length,attempts:attempts,correct:correct,accuracy:attempts?Math.round(correct/attempts*100):0,mastered:levels[4]+levels[5],dueTotal:dueTotal,nextDue:nextDue,levels:levels,tags:tags,days:days}};
     }
-    if(body.action==='cards_delete'){const old=lookup.get(String(body.id));if(old)sheet.deleteRow(old.row);return {ok:true};}
+    if(body.action==='cards_upsert'){
+      const c=cardInput_(body.card),row=findCardRow_(sheet,c.id),old=row?readRow(row):null;
+      // Editing text must not reset review progress.
+      ['level','due','correct','attempts','lastReviewId'].forEach(h=>c[h]=old?old[h]:(h==='lastReviewId'?'':0));
+      c.createdAt=old?(old.createdAt||old.updatedAt):c.createdAt;
+      write(c,row||sheet.getLastRow()+1);return {ok:true,card:c};
+    }
+    if(body.action==='cards_delete'){const row=findCardRow_(sheet,String(body.id));if(row)sheet.deleteRow(row);return {ok:true};}
     if(body.action==='cards_review'){
-      const old=lookup.get(String(body.id));if(!old)throw new Error('ไม่พบคำศัพท์นี้');
+      const row=findCardRow_(sheet,String(body.id));if(!row)throw new Error('ไม่พบคำศัพท์นี้');
       if(typeof body.remembered!=='boolean'||typeof body.reviewId!=='string'||!body.reviewId||body.reviewId.length>100)throw new Error('ข้อมูลการทบทวนไม่ถูกต้อง');
-      const c=old.card;if(c.lastReviewId===body.reviewId)return {ok:true,card:c};
+      const c=readRow(row);if(c.lastReviewId===body.reviewId)return {ok:true,card:c};
       c.level=body.remembered?Math.min(c.level+1,5):0;c.attempts++;c.correct+=body.remembered?1:0;
       c.due=body.remembered?nextDueMs_([0,1,3,7,14,30][c.level],Date.now()):Date.now()+600000;c.lastReviewId=body.reviewId;
-      write(c,old.row);return {ok:true,card:c};
+      write(c,row);return {ok:true,card:c};
     }
     if(body.action==='cards_import'){
       if(!Array.isArray(body.cards)||body.cards.length>500)throw new Error('นำเข้าได้ครั้งละไม่เกิน 500 คำ');
-      const cards=body.cards.map(cardInput_);let row=sheet.getLastRow()+1;
-      cards.forEach(c=>{if(!lookup.has(c.id)){write(c,row++);lookup.set(c.id,{card:c});}});
-      return {ok:true,cards:read().map(x=>x.card)};
+      const known={};if(sheet.getLastRow()>1)sheet.getRange(2,1,sheet.getLastRow()-1,1).getDisplayValues().forEach(r=>{if(r[0])known[String(r[0]).replace(/^'/,'')]=true;});
+      const cards=body.cards.map(cardInput_);let row=sheet.getLastRow()+1,imported=0;
+      cards.forEach(c=>{if(!known[c.id]){write(c,row++);known[c.id]=true;imported++;}});
+      return {ok:true,imported:imported};
     }
     throw new Error('ACTION_INVALID');
   } finally {lock.releaseLock();}
@@ -364,7 +470,7 @@ function goalInput_(item) {
 function goals_(body) {
   const lock = LockService.getScriptLock(); lock.waitLock(30000);
   try {
-    const book = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const book = SpreadsheetApp.openById(spreadsheetId_());
     let sheet = book.getSheetByName('Goals');
     if (!sheet) {
       sheet = book.insertSheet('Goals');
@@ -398,13 +504,16 @@ function goals_(body) {
         if (item.id !== op.id) throw new Error('INVALID_ID');
       }
     });
+    let rows = read();
+    const changed=[];
     ops.forEach(op => {
-      const rows = read(), index = rows.findIndex(x => String(x.item.id) === op.id);
+      const index = rows.findIndex(x => String(x.item.id) === op.id);
       if (op.type === 'delete') {
         // Deleting a goal takes its steps with it, bottom row first so the
         // remaining row numbers stay valid.
         const doomed = rows.filter(x => String(x.item.id) === op.id || String(x.item.goalId) === op.id).map(x => x.row);
         doomed.sort((a, b) => b - a).forEach(row => sheet.deleteRow(row));
+        rows=read();
         return;
       }
       const item = goalInput_(op.item);
@@ -417,8 +526,10 @@ function goals_(body) {
       range.setNumberFormat('@');
       // Leading apostrophe keeps user text literal, including a leading '='.
       range.setValues([GOAL_HEADERS.map(h => "'" + String(h === 'updatedAt' ? now : item[h] == null ? '' : item[h]))]);
+      changed.push(item);
+      if(index<0)rows.push({row:row,item:item});
     });
-    return { ok: true, items: shape(read()) };
+    return { ok: true, items: changed, deleted:ops.filter(op=>op.type==='delete').map(op=>op.id) };
   } finally { lock.releaseLock(); }
 }
 
@@ -481,7 +592,7 @@ function calInput_(item) {
 function calendar_(body) {
   const lock = LockService.getScriptLock(); lock.waitLock(30000);
   try {
-    const book = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const book = SpreadsheetApp.openById(spreadsheetId_());
     let sheet = book.getSheetByName('Calendar');
     if (!sheet) {
       sheet = book.insertSheet('Calendar');
@@ -502,7 +613,16 @@ function calendar_(body) {
       done: x.item.done === 'yes', doneDates: x.item.doneDates,
       createdAt: x.item.createdAt, updatedAt: x.item.updatedAt,
     }));
-    if (body.action === 'calendar_list') return { ok: true, items: shape(read()) };
+    if (body.action === 'calendar_list') {
+      const start=String(body.start||''),end=String(body.end||'');
+      const rows=read().filter(x=>{
+        const item=x.item;
+        if(!start&&!end)return true;
+        if(item.repeat==='none')return (!start||item.date>=start)&&(!end||item.date<=end);
+        return (!end||item.date<=end)&&(!start||!item.repeatUntil||item.repeatUntil>=start);
+      });
+      const result=page_(shape(rows),body,150,300);result.ok=true;return result;
+    }
 
     const ops = body.changes;
     if (!Array.isArray(ops) || ops.length > 500) throw new Error('INVALID_CHANGES');
@@ -511,9 +631,10 @@ function calendar_(body) {
       if (!op || ['upsert', 'delete'].indexOf(op.type) < 0 || typeof op.id !== 'string' || !op.id || op.id.length > 100) throw new Error('INVALID_ID');
       if (op.type === 'upsert' && calInput_(op.item).id !== op.id) throw new Error('INVALID_ID');
     });
+    let rows=read();const changed=[];
     ops.forEach(op => {
-      const rows = read(), index = rows.findIndex(x => x.item.id === op.id);
-      if (op.type === 'delete') { if (index >= 0) sheet.deleteRow(rows[index].row); return; }
+      const index = rows.findIndex(x => x.item.id === op.id);
+      if (op.type === 'delete') { if (index >= 0) {const deletedRow=rows[index].row;sheet.deleteRow(deletedRow);rows=rows.filter((_,i)=>i!==index).map(x=>x.row>deletedRow?{row:x.row-1,item:x.item}:x);} return; }
       const item = calInput_(op.item), old = index >= 0 ? rows[index].item : null;
       const now = new Date().toISOString();
       item.createdAt = (old && old.createdAt) || item.createdAt || now;
@@ -523,7 +644,8 @@ function calendar_(body) {
       range.setNumberFormat('@');
       // Leading apostrophe keeps user text literal, including a leading '='.
       range.setValues([CAL_HEADERS.map(h => "'" + String(h === 'updatedAt' ? now : item[h] == null ? '' : item[h]))]);
+      changed.push(item);if(index<0)rows.push({row:row,item:item});
     });
-    return { ok: true, items: shape(read()) };
+    return { ok: true, items: changed, deleted:ops.filter(op=>op.type==='delete').map(op=>op.id) };
   } finally { lock.releaseLock(); }
 }

@@ -41,7 +41,8 @@ function Task({item,onToggle,onRemove,busy}){
  </article>;
 }
 
-function TodoCalendar({items,today}){
+function TodoCalendar({today}){
+ const [items,setItems]=useState([]),[loading,setLoading]=useState(true);
  const [selected,setSelected]=useState(today);
  const [cursor,setCursor]=useState(()=>{const now=parseDay(today);return {year:now.getFullYear(),month:now.getMonth()}});
  const grouped=useMemo(()=>{const map=new Map();items.forEach(item=>{const key=String(item.date||'').slice(0,10);if(!map.has(key))map.set(key,[]);map.get(key).push(item)});return map},[items]);
@@ -49,6 +50,7 @@ function TodoCalendar({items,today}){
  const monthDays=new Date(cursor.year,cursor.month+1,0).getDate();
  const previousDays=new Date(cursor.year,cursor.month,0).getDate();
  const cells=Array.from({length:42},(_,index)=>{const number=index-firstDay+1;const date=number<1?new Date(cursor.year,cursor.month-1,previousDays+number):number>monthDays?new Date(cursor.year,cursor.month+1,number-monthDays):new Date(cursor.year,cursor.month,number);return {date,key:dateKey(date),current:date.getMonth()===cursor.month}});
+ useEffect(()=>{let live=true;setLoading(true);loadTodos({type:'todo',start:cells[0].key,end:cells[cells.length-1].key,pageSize:300,refresh:true}).then(result=>{if(live)setItems(result.items||[])}).catch(()=>{}).finally(()=>{if(live)setLoading(false)});return()=>{live=false}},[cursor.year,cursor.month]);
  const selectedItems=[...(grouped.get(selected)||[])].sort((a,b)=>Number(b.done)-Number(a.done)||priorityWeight(b.priority)-priorityWeight(a.priority));
  const moveMonth=amount=>setCursor(value=>{const date=new Date(value.year,value.month+amount,1);return {year:date.getFullYear(),month:date.getMonth()}});
  const choose=cell=>{setSelected(cell.key);if(!cell.current)setCursor({year:cell.date.getFullYear(),month:cell.date.getMonth()})};
@@ -63,16 +65,17 @@ function TodoCalendar({items,today}){
   <div className="calendarDiary">
    <div className="calendarDiaryHead"><img src="/goals/plan/journal.png" alt=""/><div><span>บันทึกประจำวัน</span><h2>{displayDate(selected)}</h2></div></div>
    <div className="calendarDiarySummary"><b>{selectedItems.filter(item=>item.done).length}</b><span>ทำเสร็จจาก {selectedItems.length} รายการ</span></div>
-   {selectedItems.length?<div className="calendarTaskList">{selectedItems.map(item=>{const priority=priorityOf(item.priority),meta=PRIORITIES[priority];return <article key={item.id} className={`${item.done?'done':''} ${priority}`}><span className="calendarTaskState">{item.done?'✓':'•'}</span><div><span className={`questPriority ${priority}`}><img src={meta.icon} alt=""/>{meta.label}</span><h3>{item.title}</h3>{item.detail&&<p>{item.detail}</p>}</div></article>})}</div>:<div className="calendarNoEntry"><img src="/goals/plan/schedule.png" alt=""/><b>วันนี้ยังไม่มีบันทึก</b><span>วันที่มีงานจะแสดงจำนวนไว้บนปฏิทิน</span></div>}
+   {selectedItems.length?<div className="calendarTaskList">{selectedItems.map(item=>{const priority=priorityOf(item.priority),meta=PRIORITIES[priority];return <article key={item.id} className={`${item.done?'done':''} ${priority}`}><span className="calendarTaskState">{item.done?'✓':'•'}</span><div><span className={`questPriority ${priority}`}><img src={meta.icon} alt=""/>{meta.label}</span><h3>{item.title}</h3>{item.detail&&<p>{item.detail}</p>}</div></article>})}</div>:<div className="calendarNoEntry"><img src="/goals/plan/schedule.png" alt=""/><b>{loading?'กำลังโหลดจาก Google Sheets…':'วันนี้ยังไม่มีบันทึก'}</b><span>วันที่มีงานจะแสดงจำนวนไว้บนปฏิทิน</span></div>}
   </div>
  </div>;
 }
 
 export function Todos({onRequireOwner,onSuccess}){
- const cached=getCachedTodos();
- const [items,setItems]=useState(()=>cached||[]),[ready,setReady]=useState(()=>cached!==null),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[filter,setFilter]=useState('open'),[celebrate,setCelebrate]=useState(0),[view,setView]=useState('today');
+ const initialOptions={date:localDay(),type:'todo',pageSize:100};
+ const cached=getCachedTodos(initialOptions);
+ const [items,setItems]=useState(()=>cached?.items||[]),[ready,setReady]=useState(()=>cached!==null),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[filter,setFilter]=useState('open'),[celebrate,setCelebrate]=useState(0),[view,setView]=useState('today');
  const [today,setToday]=useState(localDay);
- useEffect(()=>{let live=true;loadTodos().then(data=>{if(live){setItems(data);setReady(true)}}).catch(error=>{if(live)setMessage(error.message)});return()=>{live=false}},[]);
+ useEffect(()=>{let live=true;loadTodos({date:today,type:'todo',pageSize:100}).then(result=>{if(live){setItems(result.items||[]);setReady(true)}}).catch(error=>{if(live)setMessage(error.message)});return()=>{live=false}},[today]);
  useEffect(()=>{const refresh=()=>setToday(localDay());const timer=setInterval(refresh,30000);window.addEventListener('focus',refresh);return()=>{clearInterval(timer);window.removeEventListener('focus',refresh)}},[]);
  useEffect(()=>{if(!celebrate)return;const timer=setTimeout(()=>setCelebrate(0),2600);return()=>clearTimeout(timer)},[celebrate]);
  const todoItems=useMemo(()=>items.filter(item=>!String(item.id).startsWith('reflection-')),[items]);
@@ -81,7 +84,7 @@ export function Todos({onRequireOwner,onSuccess}){
  const shown=ordered.filter(item=>filter==='all'||filter==='done'&&item.done||filter==='open'&&!item.done);
  const completed=current.filter(item=>item.done).length;
  const percent=current.length?Math.round(completed/current.length*100):0;
- async function persist(next){setBusy(true);setMessage('');try{const result=await applyTodos(next);setItems(result.items||next);return true}catch(error){if(error.status===401){onRequireOwner?.(()=>persist(next));return false}setMessage(error.message);return false}finally{setBusy(false)}}
+ async function persist(next){const before=new Map(items.map(item=>[item.id,item])),after=new Map(next.map(item=>[item.id,item])),changes=[];for(const item of next){if(JSON.stringify(before.get(item.id))!==JSON.stringify(item))changes.push({type:'upsert',id:item.id,item})}for(const item of items)if(!after.has(item.id))changes.push({type:'delete',id:item.id});if(!changes.length)return true;setBusy(true);setMessage('');try{await applyTodos(changes);setItems(next);return true}catch(error){if(error.status===401){onRequireOwner?.(()=>persist(next));return false}setMessage(error.message);return false}finally{setBusy(false)}}
  async function add(item){if(await persist([...items,item]))setMessage('เพิ่มภารกิจให้แล้ว พร้อมลุย!')}
  async function toggle(item){const completing=!item.done;if(await persist(items.map(value=>value.id===item.id?{...value,done:completing}:value))&&completing){setCelebrate(Date.now());onSuccess?.()}}
  async function remove(item){await persist(items.filter(value=>value.id!==item.id))}
@@ -92,7 +95,7 @@ export function Todos({onRequireOwner,onSuccess}){
    <div className="todoScore" style={{'--progress':`${percent}%`}}><div><strong>{percent}%</strong><span>สำเร็จวันนี้</span></div></div>
   </header>
   <nav className="todoViewTabs" aria-label="มุมมอง Todo"><button className={view==='today'?'active':''} onClick={()=>setView('today')}><img src="/goals/plan/checklist.png" alt=""/>วันนี้</button><button className={view==='calendar'?'active':''} onClick={()=>setView('calendar')}><img src="/goals/plan/schedule.png" alt=""/>ปฏิทิน</button></nav>
-  {view==='calendar'?<TodoCalendar items={todoItems} today={today}/>:<div className="todoWorkspace">
+  {view==='calendar'?<TodoCalendar today={today}/>:<div className="todoWorkspace">
    <div className="questPanel">
     <div className="questHeader"><div><span className="questKicker">TODAY'S LIST</span><h2>ภารกิจของเรา <b>{current.length}</b></h2></div><div className="questTabs">{[['open','ต้องทำ'],['done','เสร็จแล้ว'],['all','ทั้งหมด']].map(([key,label])=><button key={key} className={filter===key?'active':''} onClick={()=>setFilter(key)}>{label}{key==='open'&&<i>{current.length-completed}</i>}</button>)}</div></div>
     {message&&<div className="todoNotice" role="status"><span>✦</span>{message}<button onClick={()=>setMessage('')}>×</button></div>}

@@ -5,20 +5,21 @@ import {normalizeEvents} from './calendar-model';
 const CACHE='grow-calendar-cache-v1',FRESH_MS=60000;
 // Module scope so it outlives the component: the page unmounts whenever the
 // user leaves the tab, and without this the sheet was refetched every visit.
-const store={items:null,at:0,inflight:null};
+const store={items:null,at:0,inflight:null,inflightKey:'',key:''};
 const readCache=()=>{try{return normalizeEvents(JSON.parse(localStorage.getItem(CACHE)||'[]'))}catch{return []}};
 const writeCache=items=>{try{localStorage.setItem(CACHE,JSON.stringify(items))}catch{}};
 
-function fetchCalendar(force){
- if(store.inflight)return store.inflight;                                     // one request even if two callers ask
- if(!force&&store.items&&Date.now()-store.at<FRESH_MS)return Promise.resolve(store.items);
- store.inflight=loadCalendar()
-  .then(data=>{const items=normalizeEvents(data);store.items=items;store.at=Date.now();return items})
-  .finally(()=>{store.inflight=null});
+function fetchCalendar(force,options){
+ const key=`${options.start||''}:${options.end||''}`;
+ if(store.inflight&&store.inflightKey===key)return store.inflight;
+ if(!force&&store.items&&store.key===key&&Date.now()-store.at<FRESH_MS)return Promise.resolve(store.items);
+ store.inflightKey=key;store.inflight=loadCalendar({...options,pageSize:500})
+  .then(result=>{const items=normalizeEvents(result.items||[]);store.items=items;store.key=key;store.at=Date.now();return items})
+  .finally(()=>{if(store.inflightKey===key){store.inflight=null;store.inflightKey=''}});
  return store.inflight;
 }
 
-export function useSheetCalendar(onRequireOwner){
+export function useSheetCalendar(onRequireOwner,options){
  const cached=store.items;
  const [items,setItems]=useState(()=>cached||readCache());
  const [ready,setReady]=useState(Boolean(cached));
@@ -32,17 +33,17 @@ export function useSheetCalendar(onRequireOwner){
  }
  useEffect(()=>{
   let active=true;
-  if(cached&&Date.now()-store.at<FRESH_MS)return;                             // fresh from an earlier visit
-  fetchCalendar(false)
+  if(cached&&store.key===`${options.start||''}:${options.end||''}`&&Date.now()-store.at<FRESH_MS)return;
+  fetchCalendar(false,options)
    .then(list=>{if(active)apply(list)})
    .catch(e=>{if(active&&!cached)setMessage(e.message+' · ใช้ข้อมูลที่เก็บไว้ในเครื่องก่อน')});
   return()=>{active=false};
- },[]);
+ },[options.start,options.end]);
 
  async function refresh(){
   if(working.current)return;
   working.current=true;setBusy(true);
-  try{apply(await fetchCalendar(true))}
+  try{apply(await fetchCalendar(true,options))}
   catch(e){setMessage(e.message)}
   finally{working.current=false;setBusy(false)}
  }
@@ -62,8 +63,8 @@ export function useSheetCalendar(onRequireOwner){
   if(!changes.length){setItems(clean);return true}
   working.current=true;setBusy(true);setItems(clean);                          // optimistic
   try{
-   const result=await applyCalendar(changes);
-   apply(normalizeEvents(result.items));
+   await applyCalendar(changes);
+   apply(clean);
    setMessage('บันทึกใน Google Sheets แล้ว');
    return true;
   }catch(e){

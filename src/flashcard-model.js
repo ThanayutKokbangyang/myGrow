@@ -1,4 +1,4 @@
-import {dayKey as dayKeyOf} from './day';
+import {dayKey as dayKeyOf} from './day.js';
 export const DAY=86400000;
 export function normalizeCard(c){if(!c||c.id===undefined||!String(c.word||'').trim()||!String(c.meaning||'').trim())throw Error('คำศัพท์ต้องมี id คำศัพท์ และคำแปล');return {id:String(c.id),word:String(c.word).trim(),meaning:String(c.meaning).trim(),phonetic:String(c.phonetic||''),example:String(c.example||''),translation:String(c.translation||''),tag:String(c.tag||'General'),imageUrl:/^https:\/\//.test(c.imageUrl||'')?String(c.imageUrl):'',imageFileId:String(c.imageFileId||''),level:Math.min(5,Math.max(0,Math.floor(Number(c.level)||0))),due:Math.max(0,Number(c.due)||0),correct:Math.max(0,Math.floor(Number(c.correct)||0)),attempts:Math.max(0,Math.floor(Number(c.attempts)||0)),createdAt:String(c.createdAt||''),updatedAt:String(c.updatedAt||'')};}
 export const cleanGuess=s=>s.normalize('NFKC').trim().toLowerCase().replace(/\s+/g,' ');

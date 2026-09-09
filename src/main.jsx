@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import "./styles.css";
 import Flashcards from "./flashcards";
 import {contains,roomGeometry} from "./room-geometry";
-import {countStreak, dayKey, formatDayTH} from "./day";
+import {dayKey, formatDayTH} from "./day";
 import {MusicPlayer, SmallWins, unlockSound, woodStep, winSound, smallWinSound} from "./comfort";
 import {FocusStage} from "./focus-stage";
 import {Goals} from "./goals";
@@ -17,6 +17,8 @@ import {
   deleteActivity,
   hasOwnerToken,
   loadActivities,
+  loadDashboard,
+  loadTodos,
   verifyOwner,
 } from "./api";
 
@@ -136,13 +138,8 @@ function App() {
   useEffect(()=>{if(!soundEnabled)victoryStop.current?.();return ()=>victoryStop.current?.();},[soundEnabled]);
   const celebrateSmallWin = () => { victoryStop.current?.(); if(soundRef.current) victoryStop.current=smallWinSound(); };
   const celebrateSound = () => { if(soundRef.current) winSound(); };
-  const [logs, setLogs] = useState(() =>
-    JSON.parse(
-      localStorage.getItem("grow-logs-cache") ||
-        localStorage.getItem("grow-logs") ||
-        "[]",
-    ),
-  );
+  const [logs, setLogs] = useState([]);
+  const [summary,setSummary]=useState({total:0,minutes:0,gain:0,activeDays:0,streak:0,xp:0,totals:{english:0,coding:0,math:0,cognitive:0}});
   const [modal, setModal] = useState(null);
   const [verify, setVerify] = useState(null);
   const [toast, setToast] = useState("");
@@ -197,25 +194,17 @@ function App() {
     const timer = setInterval(step, 280);
     return () => clearInterval(timer);
   }, [walking, view, soundEnabled]);
+  async function refreshDashboard(force=false){
+    try{const result=await loadDashboard(force);setLogs(result.todayItems||[]);if(result.summary)setSummary(result.summary);}
+    catch(error){notify(error.message)}
+  }
   useEffect(() => {
-    let active = true;
-    loadActivities()
-      .then((items) => {
-        if (active) setLogs(items);
-      })
-      .catch((error) => notify(error.message));
     ["down", "up", "left", "right"].forEach((name) => {
       const image = new Image();
       image.src = `/sprite/directions/${name}.png`;
     });
-    return () => {
-      active = false;
-    };
   }, []);
-  useEffect(
-    () => localStorage.setItem("grow-logs-cache", JSON.stringify(logs)),
-    [logs],
-  );
+  useEffect(()=>{if(view==='progress'||view==='today')refreshDashboard()},[view]);
   useEffect(() => localStorage.setItem("grow-sessions", sessions), [sessions]);
   // Lets the floating music player lift itself above the focus stage, so the
   // video can be muted and a different track played over it.
@@ -262,13 +251,11 @@ function App() {
   const today = dateKey(new Date());
   const todayLogs = logs.filter((x) => dateKey(x.date) === today);
   const minutes = todayLogs.reduce((a, b) => a + Number(b.minutes), 0);
-  const xp =
-    logs.reduce((a, b) => a + Number(b.minutes) * 2, 0) + sessions * 25;
+  const xp = Number(summary.xp||0) + sessions * 25;
   // Consecutive days, not "days ever logged": a gap resets it. Today being
   // empty so far does not break the run -- only a whole missed day does.
-  const loggedDays = new Set(logs.map((x) => dateKey(x.date)));
-  const streak = countStreak(loggedDays, today);
-  const activeDays = loggedDays.size;
+  const streak = Number(summary.streak||0);
+  const activeDays = Number(summary.activeDays||0);
   const notify = (t) => {
     setToast(t);
     setTimeout(() => setToast(""), 2400);
@@ -373,6 +360,7 @@ function App() {
       const result = await createActivity(item);
       const saved = result.item || item;
       setLogs((v) => [saved, ...v.filter((x) => String(x.id) !== String(saved.id))]);
+      refreshDashboard(true);
       setModal(null);
       setGrowthEvent(item.id);
       setCelebrating(true);
@@ -426,7 +414,7 @@ function App() {
       setVerify({ type: "delete", id });
       return;
     }
-    removeNow(id);
+    return removeNow(id);
   }
   async function confirmOwner(code) {
     await verifyOwner(code);
@@ -483,7 +471,7 @@ function App() {
           <Today
             {...{
               todayLogs,
-              growthCount: logs.length,
+              growthCount: summary.total,
               growthEvent,
               minutes,
               xp,
@@ -520,9 +508,9 @@ function App() {
         ) : view === "wins" ? (
           <SmallWins onSuccess={celebrateSmallWin} onRequireOwner={()=>setVerify({type:"wins"})} />
         ) : view === "history" ? (
-          <HistoryView logs={logs} remove={remove} />
+          <HistoryView remove={remove} onChanged={()=>refreshDashboard(true)} />
         ) : (
-          <Progress logs={logs} xp={xp} streak={streak} activeDays={activeDays} />
+          <Progress summary={summary} xp={xp} />
         )}
       </main>
       {modal && (
@@ -581,6 +569,8 @@ function Today({
   setModal,
   openStage,
 }) {
+  const [plans,setPlans]=useState([]);
+  useEffect(()=>{let live=true;loadTodos({date:dayKey(),type:'todo',pageSize:20}).then(result=>{if(live)setPlans(result.items||[])}).catch(()=>{});return()=>{live=false}},[]);
   const totals = Object.keys(SKILLS).reduce(
     (o, k) => ({
       ...o,
@@ -698,29 +688,25 @@ function Today({
         <div className="card plan">
           <div className="cardTitle">
             <h2>Today's plan</h2>
-            <span>{Math.min(todayLogs.length, 4)}/4</span>
+            <span>{plans.filter(item=>item.done).length}/{plans.length}</span>
           </div>
-          {Object.entries(SKILLS).map(([k, s]) => {
-            const log = todayLogs.find((x) => x.skill === k);
-            return (
-              <div className={`task ${log ? "" : "muted"}`} key={k}>
-                <span style={{ background: s.color }}>
-                  <SkillArt skill={k} />
+          {plans.slice(0,4).map(item => (
+              <div className={`task ${item.done ? "" : "muted"}`} key={item.id}>
+                <span style={{ background: item.priority==='high'?'#e58a17':'#2a9d8f' }}>
+                  <PixelIcon name={item.priority==='high'?'flame':'check'} />
                 </span>
                 <div>
-                  <b>{log?.topic || s.label}</b>
-                  <small>
-                    {log ? `${s.label} · ${log.minutes}m` : "ยังไม่ได้ฝึก"}
-                  </small>
+                  <b>{item.title}</b>
+                  <small>{item.done?'ทำเสร็จแล้ว':item.priority==='high'?'งานสำคัญ':'รอทำวันนี้'}</small>
                 </div>
-                {log ? (
+                {item.done ? (
                   <PixelIcon name="check" className="done" />
                 ) : (
                   <i className="checkBox" />
                 )}
               </div>
-            );
-          })}
+          ))}
+          {!plans.length&&<div className="task muted"><div><b>ยังไม่มีภารกิจวันนี้</b><small>เพิ่มได้ที่หน้า “ภารกิจวันนี้”</small></div><i className="checkBox" /></div>}
           <button className="primary" onClick={() => setModal({ ...EMPTY })}>
             <PixelIcon name="plus" /> Add activity
           </button>
@@ -1038,38 +1024,26 @@ function LogModal({ initial, onClose, onSave }) {
   );
 }
 
-function HistoryView({ logs, remove }) {
-  const DAYS_PER_PAGE = 7;
+function HistoryView({ remove,onChanged }) {
+  const PAGE_SIZE = 40;
   const [filter, setFilter] = useState("all");
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
+  const [logs,setLogs]=useState([]);
+  const [meta,setMeta]=useState({page:1,pages:1,total:0});
+  const [loading,setLoading]=useState(true);
   const historyTopRef = useRef(null);
-  const q = query.trim().toLowerCase();
-  const shown = logs.filter(
-    (x) =>
-      (filter === "all" || x.skill === filter) &&
-      (!q ||
-        [x.topic, x.learned, x.problem, x.next, SKILLS[x.skill].label].some(
-          (v) =>
-            String(v || "")
-              .toLowerCase()
-              .includes(q),
-        )),
-  );
-  const grouped = shown.reduce((o, x) => {
+  async function load(nextPage=page){setLoading(true);try{const result=await loadActivities({page:nextPage,pageSize:PAGE_SIZE,skill:filter,query:query.trim()});setLogs(result.items||[]);setMeta(result)}catch(error){}finally{setLoading(false)}}
+  useEffect(()=>{const timer=setTimeout(()=>load(page),query?300:0);return()=>clearTimeout(timer)},[page,filter,query]);
+  const grouped = logs.reduce((o, x) => {
     const k = dateKey(x.date);
     (o[k] ??= []).push(x);
     return o;
   }, {});
   const dayGroups = Object.entries(grouped);
-  const pageCount = Math.max(1, Math.ceil(dayGroups.length / DAYS_PER_PAGE));
-  const safePage = Math.min(page, pageCount);
-  const pagedGroups = dayGroups.slice(
-    (safePage - 1) * DAYS_PER_PAGE,
-    safePage * DAYS_PER_PAGE,
-  );
+  const pageCount = meta.pages||1;
+  const safePage = meta.page||page;
   useEffect(() => setPage(1), [filter, query]);
-  useEffect(() => setPage((current) => Math.min(current, pageCount)), [pageCount]);
   function goPage(nextPage) {
     setPage(nextPage);
     requestAnimationFrame(() =>
@@ -1115,8 +1089,8 @@ function HistoryView({ logs, remove }) {
         </div>
       </div>
       <div className="timeline">
-        {shown.length ? (
-          pagedGroups.map(([day, items]) => (
+        {logs.length ? (
+          dayGroups.map(([day, items]) => (
             <section className="dayGroup" key={day}>
               <header>
                 <div>
@@ -1171,7 +1145,7 @@ function HistoryView({ logs, remove }) {
                       </div>
                       <button
                         className="delete"
-                        onClick={() => remove(x.id)}
+                        onClick={async()=>{setLogs(items=>items.filter(item=>item.id!==x.id));await remove(x.id);await load(safePage);onChanged?.();}}
                         aria-label={`ลบ ${x.topic}`}
                       >
                         <PixelIcon name="trash" />
@@ -1185,19 +1159,19 @@ function HistoryView({ logs, remove }) {
         ) : (
           <div className="empty big">
             <PixelIcon name="search" />
-            <b>ไม่พบรายการที่ค้นหา</b>
+            <b>{loading?'กำลังโหลดจาก Google Sheets…':'ไม่พบรายการที่ค้นหา'}</b>
             <small>ลองเปลี่ยนคำค้นหาหรือตัวกรองทักษะ</small>
           </div>
         )}
       </div>
-      {dayGroups.length > DAYS_PER_PAGE && (
+      {pageCount > 1 && (
         <nav className="historyPagination" aria-label="หน้าประวัติกิจกรรม">
           <button type="button" disabled={safePage === 1} onClick={() => goPage(safePage - 1)}>
             ‹ ก่อนหน้า
           </button>
           <span>
             หน้า <b>{safePage}</b> / {pageCount}
-            <small>แสดงครั้งละ {DAYS_PER_PAGE} วัน · {shown.length} กิจกรรม</small>
+            <small>แสดงครั้งละ {PAGE_SIZE} กิจกรรม · พบทั้งหมด {meta.total||0}</small>
           </span>
           <button type="button" disabled={safePage === pageCount} onClick={() => goPage(safePage + 1)}>
             ถัดไป ›
@@ -1208,27 +1182,10 @@ function HistoryView({ logs, remove }) {
   );
 }
 
-function Progress({ logs, xp, streak, activeDays }) {
-  const totals = useMemo(
-    () =>
-      Object.keys(SKILLS).reduce(
-        (o, k) => ({
-          ...o,
-          [k]: logs
-            .filter((x) => x.skill === k)
-            .reduce((a, b) => a + Number(b.minutes), 0),
-        }),
-        {},
-      ),
-    [logs],
-  );
+function Progress({ summary, xp }) {
+  const totals = summary.totals||{};
   const max = Math.max(1, ...Object.values(totals));
-  const gain = logs.length
-    ? (
-        logs.reduce((a, b) => a + Number(b.after) - Number(b.before), 0) /
-        logs.length
-      ).toFixed(1)
-    : 0;
+  const gain = Number(summary.gain||0).toFixed(1);
   return (
     <section className="page progressPage">
       <p className="eyebrow">YOUR GROWTH</p>
@@ -1249,13 +1206,13 @@ function Progress({ logs, xp, streak, activeDays }) {
         <div>
           <PixelIcon name="flame" />
           <span>
-            <b>{streak}</b>วันติดต่อกัน
+            <b>{summary.streak||0}</b>วันติดต่อกัน
           </span>
         </div>
         <div>
           <PixelIcon name="sprout" />
           <span>
-            <b>{activeDays}</b>วันที่ลงมือทั้งหมด
+            <b>{summary.activeDays||0}</b>วันที่ลงมือทั้งหมด
           </span>
         </div>
         <div>
@@ -1289,7 +1246,7 @@ function Progress({ logs, xp, streak, activeDays }) {
         <PixelIcon name="brain" />
         <div>
           <b>
-            {logs.length
+            {summary.total
               ? "ทุกครั้งที่บันทึก เราจะเห็นหลักฐานว่าตัวเองกำลังไปข้างหน้า"
               : "เริ่มบันทึกกิจกรรมแรกของเรา"}
           </b>

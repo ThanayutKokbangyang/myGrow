@@ -66,8 +66,8 @@ export function useSheetGoals(onRequireOwner){
   if(!changes.length){setItems(clean);return true}
   working.current=true;setBusy(true);setItems(clean);                          // optimistic
   try{
-   const result=await applyGoals(changes);
-   apply(normalizeItems(result.items));
+   await applyGoals(changes);
+   apply(clean);
    setMessage('บันทึกใน Google Sheets แล้ว');
    return true;
   }catch(e){

@@ -8,7 +8,6 @@ import {
 import {
   normalizeCard,
   cleanGuess,
-  reviewStats,
   dueCards,
   cardDay,
   dayKey,
@@ -46,23 +45,26 @@ const readCache = () => {
 // Module scope, so it outlives the component. Flashcards unmounts every time
 // the user leaves the tab; without this the sheet was fetched again (and the
 // page fell back to "กำลังโหลดคำศัพท์…") on every single visit.
-const store = { items: null, at: 0, inflight: null };
-const remember = (items) => {
+const store = { items: null, meta:null, page:1, pages:1, total:0, at: 0, inflight: null, inflightKey:'', key:'' };
+const remember = (items,meta=null) => {
   store.items = items;
+  if(meta)store.meta=meta;
   store.at = Date.now();
 };
-function fetchCards(force) {
-  if (store.inflight) return store.inflight; // one request even if two callers ask
-  if (!force && store.items && Date.now() - store.at < FRESH_MS)
-    return Promise.resolve(store.items);
-  store.inflight = loadFlashcards()
-    .then((data) => {
-      const items = data.map(normalizeCard);
-      remember(items);
-      return items;
+function fetchCards(force,options={mode:'study',pageSize:200}) {
+  const key=JSON.stringify(options);
+  if (store.inflight&&store.inflightKey===key) return store.inflight;
+  if (!force && store.items && store.key===key && Date.now() - store.at < FRESH_MS)
+    return Promise.resolve({cards:store.items,meta:store.meta,page:store.page,pages:store.pages,total:store.total});
+  store.inflightKey=key;store.inflight = loadFlashcards(options)
+    .then((result) => {
+      const items = (result.cards||[]).map(normalizeCard);
+      store.key=key;store.page=result.page||1;store.pages=result.pages||1;store.total=result.total||items.length;
+      remember(items,result.meta||{});
+      return {...result,cards:items};
     })
     .finally(() => {
-      store.inflight = null;
+      if(store.inflightKey===key){store.inflight = null;store.inflightKey=''}
     });
   return store.inflight;
 }
@@ -76,6 +78,7 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
     [ready, setReady] = useState(!!stored),
     [busy, setBusy] = useState(false),
     [notice, setNotice] = useState(stored ? "" : "กำลังโหลดคำศัพท์…");
+  const [meta,setMeta]=useState(()=>store.meta||{total:0,attempts:0,accuracy:0,mastered:0,dueTotal:0,nextDue:0,levels:[0,0,0,0,0,0],tags:{},days:{}}),[libraryPage,setLibraryPage]=useState(store.page||1),[pageCount,setPageCount]=useState(store.pages||1);
   const [flipped, setFlipped] = useState(false),
     [index, setIndex] = useState(0),
     [query, setQuery] = useState(""),
@@ -113,9 +116,11 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
       setNotice("กำลังโหลดคำศัพท์…");
     }
     try {
-      const items = await fetchCards(force);
+      const options=tab==='study'&&!all?{mode:'study',pageSize:200}:{mode:'library',page:libraryPage,pageSize:50,query:query.trim(),tag,day};
+      const result = await fetchCards(force,options),items=result.cards;
       if (!mounted.current || run !== loadRun.current) return;
       accept(items);
+      setMeta(result.meta||{});setLibraryPage(result.page||1);setPageCount(result.pages||1);
       setReady(true);
       setNotice("");
       if (force) {
@@ -129,7 +134,7 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
   useEffect(() => {
     mounted.current = true;
     // Fresh data from an earlier visit: render it and stay quiet.
-    if (!(stored && Date.now() - store.at < FRESH_MS)) refresh(!stored);
+    if (!(stored && store.key===JSON.stringify({mode:'study',pageSize:200}) && Date.now() - store.at < FRESH_MS)) refresh(!stored);
     const tick = () => {
       setNow(Date.now());
       const nextDay = currentDayKey();
@@ -155,6 +160,8 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
       window.speechSynthesis?.cancel();
     };
   }, []);
+  useEffect(()=>{if(!(tab==='words'||tab==='study'&&all))return;const timer=setTimeout(()=>refresh(true),query?300:0);return()=>clearTimeout(timer)},[tab,all,libraryPage,query,tag,day]);
+  useEffect(()=>setLibraryPage(1),[query,tag,day]);
   async function mutate(action, payload) {
     if (lock.current) return null;
     if (!ready) {
@@ -184,13 +191,10 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
       if (mounted.current) setBusy(false);
     }
   }
-  const tags = useMemo(
-    () => [...new Set(cards.map((c) => c.tag))].sort(),
-    [cards],
-  );
+  const tags = useMemo(()=>Object.keys(meta.tags||{}).sort(),[meta.tags]);
   const days = useMemo(
-    () => groupByDay(cards).map(([key, list]) => [key, list.length]),
-    [cards],
+    () => Object.entries(meta.days||{}).sort((a,b)=>b[0].localeCompare(a[0])),
+    [meta.days],
   );
   const dayLabel = (key) =>
     key === "unknown"
@@ -215,7 +219,8 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
   const due = useMemo(() => dueCards(filtered, now), [filtered, now]);
   const queue = all ? filtered : due,
     current = queue[index % Math.max(queue.length, 1)];
-  const stats = reviewStats(cards);
+  useEffect(()=>{if(tab==='study'&&!all&&tag==='all'&&ready&&!busy&&!due.length&&(meta.dueTotal||0)>0)refresh(true)},[tab,all,tag,ready,busy,due.length,meta.dueTotal]);
+  const stats = {attempts:meta.attempts||0,accuracy:meta.accuracy||0,mastered:meta.mastered||0};
   const clozePrompt = useMemo(
     () => (current ? clozeSentence(current.example, current.word) : ""),
     [current?.id, current?.example, current?.word],
@@ -307,6 +312,7 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
     if (!result) return;
     const updated = normalizeCard(result.card);
     accept(cards.map((c) => (c.id === updated.id ? updated : c)));
+    setMeta(value=>({...value,attempts:(value.attempts||0)+1,correct:(value.correct||0)+(remembered?1:0),dueTotal:Math.max(0,(value.dueTotal||0)-1),levels:(value.levels||[0,0,0,0,0,0]).map((count,level)=>count+(level===updated.level?1:0)-(level===current.level?1:0))}));
     setNow(Date.now());
     setSessionReviewed((value) => value + 1);
     setStreak((v) => (remembered ? v + 1 : 0));
@@ -652,12 +658,12 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
             <div className="fcEmpty">
               <Icon name="check" />
               <h2>
-                {cards.length
+                {meta.total
                   ? "ทบทวนครบแล้ว เก่งมาก!"
                   : "เริ่มสะสมคำศัพท์คำแรก"}
               </h2>
               <p>
-                {cards.length
+                {meta.total
                   ? `${waitLabel(nextDue - now)} · พักได้เลย หรือเข้า Free Practice เพื่อฝึกต่อ`
                   : "เพิ่มคำศัพท์ใหม่ หรือรอเชื่อมต่อ Vocabulary ให้สำเร็จ"}
               </p>
@@ -724,6 +730,7 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
             ))}
             {!filtered.length && <p>ไม่พบคำศัพท์</p>}
           </div>
+          {pageCount>1&&<nav className="fcPagination" aria-label="หน้าคลังคำศัพท์"><button disabled={libraryPage<=1} onClick={()=>setLibraryPage(page=>page-1)}>‹ ก่อนหน้า</button><span>หน้า <b>{libraryPage}</b> / {pageCount}<small>พบ {store.total} คำ</small></span><button disabled={libraryPage>=pageCount} onClick={()=>setLibraryPage(page=>page+1)}>ถัดไป ›</button></nav>}
           <div className="fcBackup">
             <button
               onClick={() => {
@@ -739,7 +746,7 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
                 setTimeout(() => URL.revokeObjectURL(url), 1000);
               }}
             >
-              ส่งออกคำศัพท์
+              ส่งออกคำศัพท์หน้านี้
             </button>
             <label className="fcFileBtn">
               <Icon name="plus" />
@@ -761,7 +768,7 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
                     const imported = list.map(normalizeCard);
                     const result = await mutate("import", { cards: imported });
                     if (result) {
-                      accept(result.cards);
+                      await refresh(true);
                       setNotice("นำเข้าคำศัพท์แล้ว โดยเก็บคำที่มี ID เดิมไว้");
                     }
                   } catch (e) {
@@ -778,12 +785,12 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
           <h2>ทุกคำที่จำได้ คืออีกก้าวหนึ่ง</h2>
           <div className="fcStats">
             {[
-              ["คำศัพท์ทั้งหมด", cards.length],
+              ["คำศัพท์ทั้งหมด", meta.total||0],
               ["ตอบไปแล้ว", stats.attempts],
               ["ความแม่นยำ", `${stats.accuracy}%`],
               ["จำระยะยาว", stats.mastered],
-              ["ถึงรอบตอนนี้", dueCards(cards, now).length],
-              ["รอบถัดไป", waitLabel(Math.min(...cards.map((card) => Number(card.due)).filter((dueAt) => dueAt > now)) - now)],
+              ["ถึงรอบตอนนี้", meta.dueTotal||0],
+              ["รอบถัดไป", meta.nextDue?waitLabel(Number(meta.nextDue) - now):"ยังไม่มีรอบถัดไป"],
             ].map(([label, n]) => (
               <div key={label}>
                 <span>{label}</span>
@@ -798,11 +805,11 @@ export default function Flashcards({ onRequireOwner, onSuccess, ownerOpen }) {
               <div>
                 <i
                   style={{
-                    width: `${cards.length ? (cards.filter((c) => c.level === level).length / cards.length) * 100 : 0}%`,
+                    width: `${meta.total ? ((meta.levels?.[level]||0) / meta.total) * 100 : 0}%`,
                   }}
                 />
               </div>
-              <b>{cards.filter((c) => c.level === level).length}</b>
+              <b>{meta.levels?.[level]||0}</b>
             </div>
           ))}
         </section>

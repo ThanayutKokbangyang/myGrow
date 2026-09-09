@@ -1,4 +1,4 @@
-import React,{useEffect,useRef,useState} from 'react';
+import React,{useEffect,useMemo,useRef,useState} from 'react';
 import './wins.css';
 import {WinCelebration} from './win-celebration';
 import {useSheetWins} from './use-sheet-wins';
@@ -8,8 +8,9 @@ const formatDate=key=>parseDay(key).toLocaleDateString('th-TH',{day:'numeric',mo
 function WinIcon({name}){if(name==='heart'||name==='star')return <svg className="winPixelIcon" viewBox="0 0 16 16" shapeRendering="crispEdges" aria-hidden="true"><path fill="currentColor" d={name==='heart'?'M2 2h4v2h4V2h4v2h2v6h-2v2h-2v2h-2v2H6v-2H4v-2H2v-2H0V4h2z':'M6 0h4v4h6v4h-2v2h-2v6H8v-2H6v2H2v-6H0V6h6z'}/></svg>;return <img className="winPixelIcon" src={`/ui/pixel/${name}.png`} alt=""/>;}
 function Trophy({className=''}){return <img className={`winTrophy ${className}`} src="/ui/pixel/trophy.svg" alt=""/>;}
 export function SmallWins({onSuccess,onRequireOwner}){
- const {wins,message,setMessage,persist,busy,ready,pending,refresh}=useSheetWins(onRequireOwner);
  const [today,setToday]=useState(dayKey),[selected,setSelected]=useState(dayKey),[month,setMonth]=useState(()=>parseDay(dayKey()));
+ const window=useMemo(()=>{const days=calendarDays(month);return {start:days[0].key,end:days[days.length-1].key}},[month]);
+ const {wins,message,setMessage,persist,busy,ready,pending,refresh,summary}=useSheetWins(onRequireOwner,window);
  const [text,setText]=useState(''),[category,setCategory]=useState('learning'),[filter,setFilter]=useState('all');
  const [editing,setEditing]=useState(null),[removing,setRemoving]=useState(null);
  const [celebration,setCelebration]=useState(0);
@@ -27,7 +28,7 @@ export function SmallWins({onSuccess,onRequireOwner}){
  const activeCategory=categoryOf(category),original=editing?wins.find(w=>w.id===editing):null;
  return <section className="page smallWins pixelWins">
   {celebration>0&&<WinCelebration key={celebration} onClose={()=>setCelebration(0)}/>}
-  <header className="winsHero"><div className="trophyPedestal"><Trophy/></div><div><p className="eyebrow">DAILY ACHIEVEMENTS</p><h1>ความสำเร็จเล็ก ๆ</h1><p>ก้าวเล็กของวันนี้ ก็สมควรได้รับถ้วยรางวัล</p></div><div className="winsTotal"><Trophy/><b>{wins.length}</b><span>ความสำเร็จทั้งหมด</span></div></header>
+  <header className="winsHero"><div className="trophyPedestal"><Trophy/></div><div><p className="eyebrow">DAILY ACHIEVEMENTS</p><h1>ความสำเร็จเล็ก ๆ</h1><p>ก้าวเล็กของวันนี้ ก็สมควรได้รับถ้วยรางวัล</p></div><div className="winsTotal"><Trophy/><b>{summary.total||wins.length}</b><span>ความสำเร็จทั้งหมด</span></div></header>
   <div className="winSheetStatus"><span>{ready?'☁ Google Sheets':'กำลังรอการเชื่อมต่อ'}</span>{pending>0&&<button disabled={busy||!ready} onClick={()=>persist(wins)}>ย้าย {pending} รายการเดิมเข้า Sheet</button>}<button disabled={busy} onClick={refresh}>โหลดใหม่</button></div>
   <fieldset className="winSheetFields" disabled={busy}><div className="pixelWinsLayout">
    <form className="pixelWinComposer" onSubmit={save}>

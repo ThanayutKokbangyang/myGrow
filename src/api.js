@@ -9,31 +9,35 @@ async function api(path,options={}){
  if(!response.ok){const error=new Error(body.error||'เชื่อมต่อไม่สำเร็จ');error.status=response.status;throw error}
  return body;
 }
+const query=params=>{const value=new URLSearchParams();Object.entries(params||{}).forEach(([key,item])=>{if(item!==undefined&&item!==null&&item!=='')value.set(key,String(item))});const text=value.toString();return text?'?'+text:''};
 
 export const hasOwnerToken=()=>Boolean(localStorage.getItem(TOKEN_KEY));
 export const clearOwnerToken=()=>localStorage.removeItem(TOKEN_KEY);
 export async function verifyOwner(code){const result=await api('/api/auth',{method:'POST',body:JSON.stringify({code})});localStorage.setItem(TOKEN_KEY,result.token);return result}
-export async function loadActivities(){const result=await api('/api/activities');return result.items||[]}
+export async function loadActivities(options={}){return api('/api/activities'+query(options))}
+export async function loadDashboard(refresh=false){return api('/api/dashboard'+query({refresh:refresh?1:''}))}
 export async function createActivity(item){return api('/api/activities',{method:'POST',body:JSON.stringify(item)})}
 export async function deleteActivity(id){return api('/api/activities',{method:'POST',body:JSON.stringify({_action:'delete',id})})}
 
-export async function loadWins(){const r=await api('/api/wins');return r.items||[]}
+export async function loadWins(options={}){return api('/api/wins'+query(options))}
 export async function applyWins(changes){return api('/api/wins',{method:'POST',body:JSON.stringify({changes})})}
 
 export async function loadGoals(){const r=await api('/api/goals');return r.items||[]}
 export async function applyGoals(changes){return api('/api/goals',{method:'POST',body:JSON.stringify({changes})})}
-let todosCache=null,todosRequest=null;
-export const getCachedTodos=()=>todosCache;
+const todosCache=new Map(),todosRequests=new Map();
+const todoKey=options=>JSON.stringify(options||{});
+export const getCachedTodos=(options={})=>todosCache.get(todoKey(options))||null;
 export async function loadTodos(options={}){
- if(!options.refresh&&todosCache!==null)return todosCache;
- if(!options.refresh&&todosRequest)return todosRequest;
- todosRequest=api('/api/todos').then(r=>{todosCache=r.items||[];return todosCache}).finally(()=>{todosRequest=null});
- return todosRequest;
+ const key=todoKey({...options,refresh:undefined});
+ if(!options.refresh&&todosCache.has(key))return todosCache.get(key);
+ if(!options.refresh&&todosRequests.has(key))return todosRequests.get(key);
+ const request=api('/api/todos'+query(options)).then(r=>{todosCache.set(key,r);return r}).finally(()=>todosRequests.delete(key));
+ todosRequests.set(key,request);return request;
 }
-export async function applyTodos(changes){const result=await api('/api/todos',{method:'POST',body:JSON.stringify({changes})});todosCache=result.items||changes;return {...result,items:todosCache}}
+export async function applyTodos(changes){const result=await api('/api/todos',{method:'POST',body:JSON.stringify({changes})});todosCache.clear();return result}
 
-export async function loadCalendar(){const r=await api('/api/calendar');return r.items||[]}
+export async function loadCalendar(options={}){return api('/api/calendar'+query(options))}
 export async function applyCalendar(changes){return api('/api/calendar',{method:'POST',body:JSON.stringify({changes})})}
 
-export async function loadFlashcards(){const result=await api('/api/flashcards');return result.cards||[]}
+export async function loadFlashcards(options={}){return api('/api/flashcards'+query(options))}
 export async function writeFlashcards(action,payload={}){return api('/api/flashcards',{method:'POST',body:JSON.stringify({action,...payload})})}
