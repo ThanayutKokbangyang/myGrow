@@ -68,6 +68,18 @@ function activityRows_() {
 function listActivities_(body) {
   const skill = String(body && body.skill || '').trim().toLowerCase();
   const query = String(body && body.query || '').trim().toLowerCase().slice(0, 120);
+  if ((!skill || skill === 'all') && !query) {
+    const sheet = sheet_();
+    const total = Math.max(0, sheet.getLastRow() - 1);
+    const pageSize = int_(body && body.pageSize, 40, 1, 100);
+    const pages = Math.max(1, Math.ceil(total / pageSize));
+    const current = Math.min(int_(body && body.page, 1, 1, 1000000), pages);
+    const endRow = sheet.getLastRow() - (current - 1) * pageSize;
+    const startRow = Math.max(2, endRow - pageSize + 1);
+    const count = total ? endRow - startRow + 1 : 0;
+    const items = count ? sheet.getRange(startRow, 1, count, HEADERS.length).getValues().reverse().filter(row=>String(row[0]||'').trim()).map(rowToActivity_) : [];
+    return {ok:true,items:items,page:current,pageSize:pageSize,total:total,pages:pages};
+  }
   const items = activityRows_().sort((a, b) => String(b.date).localeCompare(String(a.date))).filter(item => {
     if (skill && skill !== 'all' && item.skill !== skill) return false;
     if (!query) return true;
