@@ -18,7 +18,6 @@ import {
   hasOwnerToken,
   loadActivities,
   loadDashboard,
-  loadTodos,
   verifyOwner,
 } from "./api";
 
@@ -569,8 +568,6 @@ function Today({
   setModal,
   openStage,
 }) {
-  const [plans,setPlans]=useState([]);
-  useEffect(()=>{let live=true;loadTodos({date:dayKey(),type:'todo',pageSize:20}).then(result=>{if(live)setPlans(result.items||[])}).catch(()=>{});return()=>{live=false}},[]);
   const totals = Object.keys(SKILLS).reduce(
     (o, k) => ({
       ...o,
@@ -688,25 +685,36 @@ function Today({
         <div className="card plan">
           <div className="cardTitle">
             <h2>Today's plan</h2>
-            <span>{plans.filter(item=>item.done).length}/{plans.length}</span>
+            <span>
+              {Object.keys(SKILLS).filter((k) => totals[k] > 0).length}/4
+            </span>
           </div>
-          {plans.slice(0,4).map(item => (
-              <div className={`task ${item.done ? "" : "muted"}`} key={item.id}>
-                <span style={{ background: item.priority==='high'?'#e58a17':'#2a9d8f' }}>
-                  <PixelIcon name={item.priority==='high'?'flame':'check'} />
+          {Object.entries(SKILLS).map(([k, s]) => {
+            // หนึ่งแถวคือหนึ่งทักษะ ไม่ใช่หนึ่งกิจกรรม -- วันหนึ่งฝึกทักษะเดิม
+            // ได้หลายรอบ จึงรวมนาทีของทุกกิจกรรมในทักษะนั้นมาแสดง
+            const done = todayLogs.filter((x) => x.skill === k);
+            const minutes = totals[k];
+            return (
+              <div className={`task ${done.length ? "" : "muted"}`} key={k}>
+                <span style={{ background: s.color }}>
+                  <SkillArt skill={k} />
                 </span>
                 <div>
-                  <b>{item.title}</b>
-                  <small>{item.done?'ทำเสร็จแล้ว':item.priority==='high'?'งานสำคัญ':'รอทำวันนี้'}</small>
+                  <b>{s.label}</b>
+                  <small>
+                    {done.length
+                      ? `${done.length} กิจกรรม · ${minutes}m`
+                      : "ยังไม่ได้ฝึก"}
+                  </small>
                 </div>
-                {item.done ? (
+                {done.length ? (
                   <PixelIcon name="check" className="done" />
                 ) : (
                   <i className="checkBox" />
                 )}
               </div>
-          ))}
-          {!plans.length&&<div className="task muted"><span style={{background:'#b59a65'}}><PixelIcon name="check" /></span><div><b>ยังไม่มีภารกิจวันนี้</b><small>เพิ่มได้ที่หน้า “ภารกิจวันนี้”</small></div><i className="checkBox" /></div>}
+            );
+          })}
           <button className="primary" onClick={() => setModal({ ...EMPTY })}>
             <PixelIcon name="plus" /> Add activity
           </button>
