@@ -9,8 +9,8 @@ function WinIcon({name}){if(name==='heart'||name==='star')return <svg className=
 function Trophy({className=''}){return <img className={`winTrophy ${className}`} src="/ui/pixel/trophy.svg" alt=""/>;}
 export function SmallWins({onSuccess,onRequireOwner}){
  const [today,setToday]=useState(dayKey),[selected,setSelected]=useState(dayKey),[month,setMonth]=useState(()=>parseDay(dayKey()));
- const window=useMemo(()=>{const days=calendarDays(month);return {start:days[0].key,end:days[days.length-1].key}},[month]);
- const {wins,message,setMessage,persist,busy,ready,pending,refresh,summary}=useSheetWins(onRequireOwner,window);
+ const dateWindow=useMemo(()=>{const days=calendarDays(month);return {start:days[0].key,end:days[days.length-1].key}},[month]);
+ const {wins,message,setMessage,persist,busy,ready,pending,refresh,summary}=useSheetWins(onRequireOwner,dateWindow);
  const [text,setText]=useState(''),[category,setCategory]=useState('learning'),[filter,setFilter]=useState('all');
  const [editing,setEditing]=useState(null),[removing,setRemoving]=useState(null);
  const [celebration,setCelebration]=useState(0);
