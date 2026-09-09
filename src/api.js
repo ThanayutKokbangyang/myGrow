@@ -39,5 +39,9 @@ export async function applyTodos(changes){const result=await api('/api/todos',{m
 export async function loadCalendar(options={}){return api('/api/calendar'+query(options))}
 export async function applyCalendar(changes){return api('/api/calendar',{method:'POST',body:JSON.stringify({changes})})}
 
+export async function loadSummaries(options={}){return api('/api/summaries'+query(options))}
+export async function uploadSummary(item,file){return api('/api/summaries',{method:'POST',body:JSON.stringify({action:'upload',item,file})})}
+export async function deleteSummary(id){return api('/api/summaries',{method:'POST',body:JSON.stringify({action:'delete',id})})}
+
 export async function loadFlashcards(options={}){return api('/api/flashcards'+query(options))}
 export async function writeFlashcards(action,payload={}){return api('/api/flashcards',{method:'POST',body:JSON.stringify({action,...payload})})}

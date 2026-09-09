@@ -10,6 +10,7 @@ import {Goals} from "./goals";
 import {Todos} from "./todos";
 import {Reflections} from "./reflections";
 import {Calendar} from "./calendar";
+import {SummaryLibrary} from "./summaries";
 import {PixelIcon, PomodoroCard, FOCUS_SECONDS, BREAK_SECONDS} from "./pomodoro-card";
 import {
   clearOwnerToken,
@@ -440,6 +441,7 @@ function App() {
           ["reflections", "/goals/plan/journal.png", "ห้องสารภาพ"],
           ["calendar", "/calendar/icons/calendar-month.png", "ปฏิทิน"],
           ["wins", "/ui/pixel/trophy.svg", "ความสำเร็จเล็ก ๆ"],
+          ["summaries", "/summaries/summary-icon.png", "สรุปของเรา"],
           ["flashcards", "/ui/pixel/book.png", "Flashcards"],
         ].map(([k, asset, l]) => (
           <button
@@ -506,6 +508,8 @@ function App() {
           <Calendar onRequireOwner={()=>setVerify({type:"calendar"})} onSuccess={celebrateSmallWin} />
         ) : view === "wins" ? (
           <SmallWins onSuccess={celebrateSmallWin} onRequireOwner={()=>setVerify({type:"wins"})} />
+        ) : view === "summaries" ? (
+          <SummaryLibrary onRequireOwner={(action)=>setVerify({type:"todos",action})} onSuccess={celebrateSmallWin} />
         ) : view === "history" ? (
           <HistoryView remove={remove} onChanged={()=>refreshDashboard(true)} />
         ) : (

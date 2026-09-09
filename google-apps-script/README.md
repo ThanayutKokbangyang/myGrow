@@ -17,6 +17,12 @@ Validation: `npm run build` and `node --test tests/sheet-wins.test.mjs tests/win
 
 - Activities returns 40 rows per request and performs search/filtering before sending the response. Dashboard totals are calculated from the complete Activities sheet and cached for five minutes; writes invalidate that cache immediately.
 - Todos, reflections, SmallWins and Calendar accept `date` or `start`/`end` windows. Calendar screens request only the visible six-week window.
+
+## Summaries (รูป/PDF)
+
+หน้า `สรุปของเรา` ใช้แท็บ `Summaries` และโฟลเดอร์ Drive `myGrow Summaries` ซึ่งระบบสร้างให้อัตโนมัติเมื่อใช้งานครั้งแรก ข้อมูลชื่อเรื่อง หมวดหมู่ โน้ต และลิงก์อยู่ในชีต ส่วนไฟล์จริงอยู่ใน Drive รายการปกติอ่านจากช่วงข้อมูลเฉพาะหน้าละ 12 รายการ; ระบบจะอ่าน metadata ทั้งหมดเฉพาะตอนค้นหาหรือกรองหมวดหมู่
+
+หลังวาง `Code.gs` เวอร์ชันนี้ ให้รัน `authorizeDrive()` หนึ่งครั้งเพื่ออนุญาต Drive แล้ว Deploy Apps Script เป็นเวอร์ชันใหม่ โดยใช้ Production deployment เดิม ไฟล์รองรับ PDF, JPG, PNG และ WebP ขนาดไม่เกิน 3 MB ต่อไฟล์
 - Todos, SmallWins, Goals and Calendar writes use `{type, id, item}` operations. The browser never sends the complete list, and Apps Script reads the sheet once per write batch instead of once per item.
 - Vocabulary returns only the due review queue or one 50-word library page. Review/edit/delete locate one ID with `TextFinder` and read only that row. Aggregate vocabulary statistics are returned separately.
 

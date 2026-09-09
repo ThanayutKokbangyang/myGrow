@@ -12,6 +12,7 @@ function doPost(e) {
     if (!expected || body.secret !== expected) return response_({ ok: false, error: 'SECRET_INVALID' });
     if (String(body.action || '').indexOf('cards_') === 0) return response_(flashcards_(body));
     if (body.action === 'wins_list' || body.action === 'wins_apply') return response_(smallWins_(body));
+    if (String(body.action || '').indexOf('summaries_') === 0) return response_(summaries_(body));
     if (body.action === 'goals_list' || body.action === 'goals_apply') return response_(goals_(body));
     if (body.action === 'calendar_list' || body.action === 'calendar_apply') return response_(calendar_(body));
     if (body.action === 'todos_list' || body.action === 'todos_apply') return response_(todos_(body));
@@ -156,6 +157,92 @@ function rowToActivity_(row) {
 
 function response_(payload) {
   return ContentService.createTextOutput(JSON.stringify(payload)).setMimeType(ContentService.MimeType.JSON);
+}
+
+/* -------------------------------------------------------------------------
+   Summaries: metadata lives in Sheets; image/PDF bytes live in Drive.
+   The tab and folder are created lazily so this stays in the same deployment.
+   ------------------------------------------------------------------------- */
+const SUMMARY_HEADERS = ['id','date','title','category','note','file_name','mime_type','file_id','file_url','preview_url','file_size','created_at','updated_at'];
+const SUMMARY_CATEGORIES = ['coding','english','math','cognitive','work','life','other'];
+const SUMMARY_MIME = ['application/pdf','image/jpeg','image/png','image/webp'];
+
+function summarySheet_() {
+  const book = SpreadsheetApp.openById(spreadsheetId_());
+  let sheet = book.getSheetByName('Summaries');
+  if (!sheet) {
+    sheet = book.insertSheet('Summaries');
+    sheet.getRange(1,1,1,SUMMARY_HEADERS.length).setValues([SUMMARY_HEADERS]);
+    sheet.setFrozenRows(1); sheet.setColumnWidth(3,280); sheet.setColumnWidth(5,360);
+  }
+  const headers = sheet.getRange(1,1,1,SUMMARY_HEADERS.length).getDisplayValues()[0];
+  if (headers.join('|') !== SUMMARY_HEADERS.join('|')) throw new Error('หัวตาราง Summaries ไม่ตรงกับเวอร์ชันนี้');
+  return sheet;
+}
+function summaryFolder_() {
+  const properties=PropertiesService.getScriptProperties();
+  const saved=properties.getProperty('GROW_ROOM_SUMMARY_FOLDER_ID');
+  if(saved){try{return DriveApp.getFolderById(saved)}catch(error){properties.deleteProperty('GROW_ROOM_SUMMARY_FOLDER_ID')}}
+  const folder=DriveApp.createFolder('myGrow Summaries');
+  properties.setProperty('GROW_ROOM_SUMMARY_FOLDER_ID',folder.getId());
+  return folder;
+}
+function summaryFromRow_(row) {
+  return {id:String(row[0]||'').replace(/^'/,''),date:String(row[1]||''),title:String(row[2]||''),category:String(row[3]||'other'),note:String(row[4]||''),fileName:String(row[5]||''),mimeType:String(row[6]||''),fileId:String(row[7]||''),fileUrl:String(row[8]||''),previewUrl:String(row[9]||''),fileSize:Number(row[10]||0),createdAt:String(row[11]||''),updatedAt:String(row[12]||'')};
+}
+function summaryRows_(sheet) {
+  if(sheet.getLastRow()<2)return [];
+  return sheet.getRange(2,1,sheet.getLastRow()-1,SUMMARY_HEADERS.length).getDisplayValues().map(summaryFromRow_).filter(item=>item.id);
+}
+function summaryInput_(item) {
+  item=item||{};
+  const value={date:String(item.date||''),title:String(item.title||'').trim(),category:String(item.category||'other'),note:String(item.note||'').trim()};
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(value.date)||isNaN(new Date(value.date+'T12:00:00').getTime()))throw new Error('วันที่สรุปไม่ถูกต้อง');
+  if(!value.title||value.title.length>140)throw new Error('กรุณาระบุชื่อสรุปไม่เกิน 140 ตัวอักษร');
+  if(SUMMARY_CATEGORIES.indexOf(value.category)<0)value.category='other';
+  if(value.note.length>600)throw new Error('โน้ตยาวเกิน 600 ตัวอักษร');
+  return value;
+}
+function summaries_(body) {
+  const sheet=summarySheet_();
+  if(body.action==='summaries_list'){
+    const filter=String(body.category||'all'),query=String(body.query||'').trim().toLowerCase().slice(0,120);
+    if((!filter||filter==='all')&&!query){
+      const total=Math.max(0,sheet.getLastRow()-1),pageSize=int_(body.pageSize,12,1,48),pages=Math.max(1,Math.ceil(total/pageSize)),current=Math.min(int_(body.page,1,1,1000000),pages);
+      const endRow=sheet.getLastRow()-(current-1)*pageSize,startRow=Math.max(2,endRow-pageSize+1),count=total?endRow-startRow+1:0;
+      const items=count?sheet.getRange(startRow,1,count,SUMMARY_HEADERS.length).getDisplayValues().reverse().map(summaryFromRow_).filter(item=>item.id):[];
+      return {ok:true,items:items,page:current,pageSize:pageSize,total:total,pages:pages};
+    }
+    const items=summaryRows_(sheet).filter(item=>(filter==='all'||item.category===filter)&&(!query||[item.title,item.note,item.fileName].join(' ').toLowerCase().indexOf(query)>=0)).sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
+    const result=page_(items,body,12,48);result.ok=true;return result;
+  }
+  const lock=LockService.getScriptLock();lock.waitLock(30000);
+  try{
+    if(body.action==='summaries_upload'){
+      const input=summaryInput_(body.item),upload=body.file||{},mime=String(upload.type||''),name=String(upload.name||'summary').replace(/[\\/:*?"<>|\r\n]+/g,'_').slice(0,180);
+      if(SUMMARY_MIME.indexOf(mime)<0)throw new Error('รองรับเฉพาะ PDF, JPG, PNG และ WebP');
+      let bytes;try{bytes=Utilities.base64Decode(String(upload.data||''))}catch(error){throw new Error('ข้อมูลไฟล์ไม่ถูกต้อง')}
+      if(!bytes.length||bytes.length>3*1024*1024)throw new Error('ไฟล์ต้องมีขนาดไม่เกิน 3 MB');
+      let file;
+      try{
+        file=summaryFolder_().createFile(Utilities.newBlob(bytes,mime,name));
+        try{file.setSharing(DriveApp.Access.ANYONE_WITH_LINK,DriveApp.Permission.VIEW)}catch(error){}
+        const id=Utilities.getUuid(),now=new Date().toISOString(),fileId=file.getId();
+        const data={id:id,date:input.date,title:input.title,category:input.category,note:input.note,fileName:name,mimeType:mime,fileId:fileId,fileUrl:'https://drive.google.com/uc?export=view&id='+encodeURIComponent(fileId),previewUrl:'https://drive.google.com/file/d/'+encodeURIComponent(fileId)+'/preview',fileSize:bytes.length,createdAt:now,updatedAt:now};
+        sheet.appendRow(["'"+data.id,"'"+data.date,data.title,data.category,data.note,data.fileName,data.mimeType,"'"+data.fileId,data.fileUrl,data.previewUrl,data.fileSize,"'"+data.createdAt,"'"+data.updatedAt]);
+        return {ok:true,item:data};
+      }catch(error){if(file)try{file.setTrashed(true)}catch(ignore){}throw error}
+    }
+    if(body.action==='summaries_delete'){
+      const id=String(body.id||'');if(!id||sheet.getLastRow()<2)return {ok:true,deleted:false};
+      const column=sheet.getRange(2,1,sheet.getLastRow()-1,1),hit=column.createTextFinder(id).matchEntireCell(true).matchCase(true).findNext();
+      if(!hit)return {ok:true,deleted:false};
+      const row=hit.getRow(),fileId=String(sheet.getRange(row,8).getDisplayValue()||'').replace(/^'/,'');
+      if(fileId)try{DriveApp.getFileById(fileId).setTrashed(true)}catch(error){}
+      sheet.deleteRow(row);return {ok:true,deleted:true};
+    }
+    throw new Error('ACTION_INVALID');
+  } finally {lock.releaseLock()}
 }
 
 /* -------------------------------------------------------------------------
@@ -350,6 +437,17 @@ function cardInput_(input) {
   if(c.level>5||c.correct>c.attempts)throw new Error('ข้อมูลความคืบหน้าไม่ถูกต้อง');
   return c;
 }
+// Reading is tolerant of legacy rows; write validation remains strict above.
+function cardRead_(raw){
+  const c={};CARD_HEADERS.forEach(h=>c[h]=String(raw[h]==null?'':raw[h]));
+  c.word=c.word.trim();c.meaning=c.meaning.trim();c.tag=c.tag.trim()||'General';
+  ['level','due','correct','attempts'].forEach(h=>{const n=Number(c[h]);c[h]=isFinite(n)&&n>0?Math.floor(n):0});
+  c.level=Math.max(0,Math.min(5,c.level));return c;
+}
+const CARD_CACHE_KEY_='cards_index_v1',CARD_CACHE_TTL_=300,CARD_CACHE_CHUNK_=60000;
+function cardsCacheClear_(){try{CacheService.getScriptCache().remove(CARD_CACHE_KEY_)}catch(error){}}
+function cardsCacheGet_(){try{const cache=CacheService.getScriptCache(),index=cache.get(CARD_CACHE_KEY_);if(!index)return null;const meta=JSON.parse(index),keys=[];for(let i=0;i<meta.n;i++)keys.push(meta.stamp+'_'+i);const parts=cache.getAll(keys);let text='';for(let i=0;i<meta.n;i++){if(parts[keys[i]]==null)return null;text+=parts[keys[i]]}const blob=Utilities.newBlob(Utilities.base64Decode(text),'application/x-gzip','cards.gz');return JSON.parse(Utilities.ungzip(blob).getDataAsString('UTF-8'))}catch(error){return null}}
+function cardsCachePut_(cards){try{const text=Utilities.base64Encode(Utilities.gzip(Utilities.newBlob(JSON.stringify(cards),'application/json','cards.json')).getBytes()),stamp='cards_'+Date.now()+'_'+Math.floor(Math.random()*100000),values={},n=Math.ceil(text.length/CARD_CACHE_CHUNK_);if(n>40)return;for(let i=0;i<n;i++)values[stamp+'_'+i]=text.substr(i*CARD_CACHE_CHUNK_,CARD_CACHE_CHUNK_);const cache=CacheService.getScriptCache();cache.putAll(values,CARD_CACHE_TTL_);cache.put(CARD_CACHE_KEY_,JSON.stringify({stamp:stamp,n:n}),CARD_CACHE_TTL_)}catch(error){}}
 function findCardRow_(sheet,id){
   if(!id||sheet.getLastRow()<2)return 0;
   const column=sheet.getRange(2,1,sheet.getLastRow()-1,1);
@@ -370,11 +468,12 @@ function flashcards_(body) {
     }
     // Refuse to write if a manually changed schema could shift existing data.
     if(headers.join('|')!==CARD_HEADERS.join('|'))throw new Error('หัวตาราง Vocabulary ไม่ตรงกับเวอร์ชันนี้');
-    const readAll=()=>sheet.getLastRow()<2?[]:sheet.getRange(2,1,sheet.getLastRow()-1,CARD_HEADERS.length).getValues().map((row,i)=>({row:i+2,card:Object.fromEntries(CARD_HEADERS.map((h,j)=>[h,row[j]]))})).filter(x=>x.card.id).map(x=>({row:x.row,card:cardInput_(x.card)}));
-    const readRow=row=>{const values=sheet.getRange(row,1,1,CARD_HEADERS.length).getValues()[0];return cardInput_(Object.fromEntries(CARD_HEADERS.map((h,j)=>[h,values[j]])));};
+    const readAll=()=>sheet.getLastRow()<2?[]:sheet.getRange(2,1,sheet.getLastRow()-1,CARD_HEADERS.length).getValues().map(row=>Object.fromEntries(CARD_HEADERS.map((h,j)=>[h,row[j]]))).filter(x=>x.id).map(cardRead_).filter(c=>c.word&&c.meaning);
+    const readRow=row=>{const values=sheet.getRange(row,1,1,CARD_HEADERS.length).getValues()[0];return cardRead_(Object.fromEntries(CARD_HEADERS.map((h,j)=>[h,values[j]])));};
     const write=(c,row)=>{if(row>sheet.getMaxRows())sheet.insertRowsAfter(sheet.getMaxRows(),100);const now=new Date().toISOString();c.createdAt=c.createdAt||c.updatedAt||now;c.updatedAt=now;const values=CARD_HEADERS.map(h=>typeof c[h]==='number'?c[h]:"'"+String(c[h]??''));sheet.getRange(row,1,1,CARD_HEADERS.length).setValues([values]);};
     if(body.action==='cards_list'){
-      const all=readAll().map(x=>x.card),now=Date.now(),query=String(body.query||'').trim().toLowerCase().slice(0,120),tag=String(body.tag||'all'),day=String(body.day||'all'),mode=String(body.mode||'study');
+      let all=body.refresh?null:cardsCacheGet_();if(!all){all=readAll();cardsCachePut_(all)}
+      const now=Date.now(),query=String(body.query||'').trim().toLowerCase().slice(0,120),tag=String(body.tag||'all'),day=String(body.day||'all'),mode=String(body.mode||'study');
       const filtered=all.filter(c=>(tag==='all'||c.tag===tag)&&(day==='all'||String(c.createdAt||c.updatedAt).slice(0,10)===day)&&(!query||[c.word,c.meaning,c.tag].join(' ').toLowerCase().indexOf(query)>=0)&&(mode!=='study'||Number(c.due)<=now)).sort((a,b)=>mode==='study'?Number(a.due)-Number(b.due):String(b.createdAt||b.updatedAt).localeCompare(String(a.createdAt||a.updatedAt)));
       const result=page_(filtered,body,mode==='study'?100:50,mode==='study'?200:100);
       const levels=[0,0,0,0,0,0];let attempts=0,correct=0,nextDue=0,dueTotal=0;const tags={},days={};
@@ -386,23 +485,24 @@ function flashcards_(body) {
       // Editing text must not reset review progress.
       ['level','due','correct','attempts','lastReviewId'].forEach(h=>c[h]=old?old[h]:(h==='lastReviewId'?'':0));
       c.createdAt=old?(old.createdAt||old.updatedAt):c.createdAt;
-      write(c,row||sheet.getLastRow()+1);return {ok:true,card:c};
+      write(c,row||sheet.getLastRow()+1);cardsCacheClear_();return {ok:true,card:c};
     }
-    if(body.action==='cards_delete'){const row=findCardRow_(sheet,String(body.id));if(row)sheet.deleteRow(row);return {ok:true};}
+    if(body.action==='cards_delete'){const row=findCardRow_(sheet,String(body.id));if(row)sheet.deleteRow(row);cardsCacheClear_();return {ok:true};}
     if(body.action==='cards_review'){
       const row=findCardRow_(sheet,String(body.id));if(!row)throw new Error('ไม่พบคำศัพท์นี้');
       if(typeof body.remembered!=='boolean'||typeof body.reviewId!=='string'||!body.reviewId||body.reviewId.length>100)throw new Error('ข้อมูลการทบทวนไม่ถูกต้อง');
       const c=readRow(row);if(c.lastReviewId===body.reviewId)return {ok:true,card:c};
       c.level=body.remembered?Math.min(c.level+1,5):0;c.attempts++;c.correct+=body.remembered?1:0;
       c.due=body.remembered?nextDueMs_([0,1,3,7,14,30][c.level],Date.now()):Date.now()+600000;c.lastReviewId=body.reviewId;
-      write(c,row);return {ok:true,card:c};
+      write(c,row);cardsCacheClear_();return {ok:true,card:c};
     }
     if(body.action==='cards_import'){
       if(!Array.isArray(body.cards)||body.cards.length>500)throw new Error('นำเข้าได้ครั้งละไม่เกิน 500 คำ');
       const known={};if(sheet.getLastRow()>1)sheet.getRange(2,1,sheet.getLastRow()-1,1).getDisplayValues().forEach(r=>{if(r[0])known[String(r[0]).replace(/^'/,'')]=true;});
-      const cards=body.cards.map(cardInput_);let row=sheet.getLastRow()+1,imported=0;
-      cards.forEach(c=>{if(!known[c.id]){write(c,row++);known[c.id]=true;imported++;}});
-      return {ok:true,imported:imported};
+      const now=new Date().toISOString(),rows=[];
+      body.cards.map(cardInput_).forEach(c=>{if(known[c.id])return;known[c.id]=true;c.createdAt=c.createdAt||c.updatedAt||now;c.updatedAt=now;rows.push(CARD_HEADERS.map(h=>typeof c[h]==='number'?c[h]:"'"+String(c[h]==null?'':c[h])))});
+      if(rows.length){const first=sheet.getLastRow()+1,last=first+rows.length-1;if(last>sheet.getMaxRows())sheet.insertRowsAfter(sheet.getMaxRows(),last-sheet.getMaxRows());sheet.getRange(first,1,rows.length,CARD_HEADERS.length).setValues(rows);cardsCacheClear_()}
+      return {ok:true,imported:rows.length};
     }
     throw new Error('ACTION_INVALID');
   } finally {lock.releaseLock();}

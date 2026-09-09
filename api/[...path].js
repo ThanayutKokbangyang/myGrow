@@ -136,6 +136,15 @@ export default async function handler(request) {
     try { return json(await sheetRequest({action:request.method==='GET'?'wins_list':'wins_apply',changes:body?.changes,date:url.searchParams.get('date'),start:url.searchParams.get('start'),end:url.searchParams.get('end'),page:url.searchParams.get('page'),pageSize:url.searchParams.get('pageSize'),summary:url.searchParams.get('summary')==='1'})); }
     catch(error){return json({error:error.message==='ACTION_INVALID'?'กรุณาอัปเดตและ Deploy Apps Script เวอร์ชัน SmallWins ก่อน':error.message},503);}
   }
+  if (url.pathname === '/api/summaries' && ['GET','POST'].includes(request.method)) {
+    if (request.method === 'POST' && !(await validToken(request))) return json({error:'กรุณายืนยันว่าเป็นเท่ก่อนบันทึก'},401);
+    const body=request.method==='POST'?await request.json().catch(()=>null):null;
+    const action=request.method==='GET'?'list':body?.action;
+    if(!['list','upload','delete'].includes(action))return json({error:'ข้อมูลไม่ถูกต้อง'},400);
+    if(action==='upload'&&(!body?.item?.title||!body?.file?.data))return json({error:'กรุณาเลือกไฟล์และตั้งชื่อสรุป'},400);
+    try{return json(await sheetRequest({action:'summaries_'+action,item:body?.item,file:body?.file,id:body?.id,page:url.searchParams.get('page'),pageSize:url.searchParams.get('pageSize'),category:url.searchParams.get('category'),query:url.searchParams.get('query')}));}
+    catch(error){return json({error:error.message==='ACTION_INVALID'?'กรุณาอัปเดตและ Deploy Apps Script เวอร์ชัน Summaries ก่อน':error.message},503);}
+  }
   if (path === '/api/activities' && request.method === 'GET') {
     try {
       return json(await sheetRequest({ action: 'list', page:url.searchParams.get('page'), pageSize:url.searchParams.get('pageSize'), skill:url.searchParams.get('skill'), query:url.searchParams.get('query') }));
