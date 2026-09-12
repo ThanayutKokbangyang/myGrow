@@ -11,6 +11,7 @@ const category=id=>CATEGORIES.find(x=>x[0]===id)||CATEGORIES[CATEGORIES.length-1
 const MAX_FILE=3*1024*1024;
 const ACCEPTED=['application/pdf','image/jpeg','image/png','image/webp'];
 const thaiDate=value=>new Date(`${String(value).slice(0,10)}T12:00:00`).toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'numeric'});
+const imageUrl=(item,size='w1600')=>item.fileId?`https://drive.google.com/thumbnail?id=${encodeURIComponent(item.fileId)}&sz=${size}`:item.fileUrl;
 
 function fileToData(file){return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(',')[1]||'');reader.onerror=()=>reject(new Error('อ่านไฟล์ไม่สำเร็จ'));reader.readAsDataURL(file)})}
 async function prepareImage(file){
@@ -30,7 +31,7 @@ function Reader({item,onClose}){
  const pdf=item.mimeType==='application/pdf';
  return <div className="summaryReaderBackdrop" role="dialog" aria-modal="true" aria-label={`เปิดอ่าน ${item.title}`} onMouseDown={e=>e.target===e.currentTarget&&onClose()}>
   <section className="summaryReader"><header><div><span>{category(item.category)[1]}</span><h2>{item.title}</h2></div><div><a href={pdf?item.previewUrl:item.fileUrl} target="_blank" rel="noreferrer">เปิดแท็บใหม่ ↗</a><button onClick={onClose} aria-label="ปิด">×</button></div></header>
-   {pdf?<iframe title={item.title} src={item.previewUrl}/>:<img src={item.fileUrl} alt={item.title}/>} {item.note&&<p>{item.note}</p>}
+   {pdf?<iframe title={item.title} src={item.previewUrl}/>:<img src={imageUrl(item,'w2400')} alt={item.title}/>} {item.note&&<p>{item.note}</p>}
   </section>
  </div>
 }
@@ -68,7 +69,7 @@ export function SummaryLibrary({onRequireOwner,onSuccess}){
   </form>
   <section className="summaryArchive"><div className="summaryTools"><div><small>OUR ARCHIVE</small><h2>หยิบกลับมาอ่าน</h2></div><form onSubmit={e=>{e.preventDefault();setSearch(query.trim())}}><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="ค้นหาชื่อหรือโน้ต…"/><button aria-label="ค้นหา">⌕</button></form></div>
    <nav className="summaryFilters">{CATEGORIES.map(c=><button key={c[0]} className={filter===c[0]?'active':''} onClick={()=>{setFilter(c[0]);setPage(1)}}><span>{c[2]}</span>{c[1]}</button>)}</nav>
-   {!ready?<div className="summaryEmpty">กำลังจัดแฟ้มบนชั้น…</div>:items.length===0?<div className="summaryEmpty"><img src="/summaries/summary-icon.png" alt=""/><h3>ยังไม่พบสรุปในชั้นนี้</h3><p>อัปโหลดไฟล์แรกจากช่องด้านซ้ายได้เลย</p></div>:<div className="summaryGrid">{items.map(item=><article key={item.id}><button className="summaryCover" onClick={()=>setReader(item)}>{item.mimeType==='application/pdf'?<div className="summaryPdf"><b>PDF</b><span>เปิดอ่าน</span></div>:<img src={item.fileUrl} alt="" loading="lazy"/>}<span className="summaryOpen">เปิดอ่าน</span></button><div className="summaryCardBody"><div><span className={`summaryCategory ${item.category}`}>{category(item.category)[1]}</span><time>{thaiDate(item.date)}</time></div><h3>{item.title}</h3>{item.note&&<p>{item.note}</p>}<footer>{removing===item.id?<><span>ลบทั้งไฟล์?</span><button disabled={busy} onClick={()=>removeNow(item.id)}>ยืนยัน</button><button onClick={()=>setRemoving('')}>ยกเลิก</button></>:<><small>{item.mimeType==='application/pdf'?'PDF':'IMAGE'} · {Math.max(1,Math.round(Number(item.fileSize||0)/1024))} KB</small><button onClick={()=>setRemoving(item.id)} aria-label={`ลบ ${item.title}`}>ลบ</button></>}</footer></div></article>)}</div>}
+   {!ready?<div className="summaryEmpty">กำลังจัดแฟ้มบนชั้น…</div>:items.length===0?<div className="summaryEmpty"><img src="/summaries/summary-icon.png" alt=""/><h3>ยังไม่พบสรุปในชั้นนี้</h3><p>อัปโหลดไฟล์แรกจากช่องด้านซ้ายได้เลย</p></div>:<div className="summaryGrid">{items.map(item=><article key={item.id}><button className="summaryCover" onClick={()=>setReader(item)}>{item.mimeType==='application/pdf'?<div className="summaryPdf"><b>PDF</b><span>เปิดอ่าน</span></div>:<img src={imageUrl(item)} alt="" loading="lazy"/>}<span className="summaryOpen">เปิดอ่าน</span></button><div className="summaryCardBody"><div><span className={`summaryCategory ${item.category}`}>{category(item.category)[1]}</span><time>{thaiDate(item.date)}</time></div><h3>{item.title}</h3>{item.note&&<p>{item.note}</p>}<footer>{removing===item.id?<><span>ลบทั้งไฟล์?</span><button disabled={busy} onClick={()=>removeNow(item.id)}>ยืนยัน</button><button onClick={()=>setRemoving('')}>ยกเลิก</button></>:<><small>{item.mimeType==='application/pdf'?'PDF':'IMAGE'} · {Math.max(1,Math.round(Number(item.fileSize||0)/1024))} KB</small><button onClick={()=>setRemoving(item.id)} aria-label={`ลบ ${item.title}`}>ลบ</button></>}</footer></div></article>)}</div>}
    {pages>1&&<nav className="summaryPagination"><button disabled={page<=1||!ready} onClick={()=>refresh(page-1)}>‹ ก่อนหน้า</button><span>หน้า <b>{page}</b> / {pages}<small>{total} รายการ</small></span><button disabled={page>=pages||!ready} onClick={()=>refresh(page+1)}>ถัดไป ›</button></nav>}
   </section></div>
  </section>

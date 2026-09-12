@@ -228,7 +228,7 @@ function summaries_(body) {
         file=summaryFolder_().createFile(Utilities.newBlob(bytes,mime,name));
         try{file.setSharing(DriveApp.Access.ANYONE_WITH_LINK,DriveApp.Permission.VIEW)}catch(error){}
         const id=Utilities.getUuid(),now=new Date().toISOString(),fileId=file.getId();
-        const data={id:id,date:input.date,title:input.title,category:input.category,note:input.note,fileName:name,mimeType:mime,fileId:fileId,fileUrl:'https://drive.google.com/uc?export=view&id='+encodeURIComponent(fileId),previewUrl:'https://drive.google.com/file/d/'+encodeURIComponent(fileId)+'/preview',fileSize:bytes.length,createdAt:now,updatedAt:now};
+        const data={id:id,date:input.date,title:input.title,category:input.category,note:input.note,fileName:name,mimeType:mime,fileId:fileId,fileUrl:'https://drive.google.com/thumbnail?id='+encodeURIComponent(fileId)+'&sz=w1600',previewUrl:'https://drive.google.com/file/d/'+encodeURIComponent(fileId)+'/preview',fileSize:bytes.length,createdAt:now,updatedAt:now};
         sheet.appendRow(["'"+data.id,"'"+data.date,data.title,data.category,data.note,data.fileName,data.mimeType,"'"+data.fileId,data.fileUrl,data.previewUrl,data.fileSize,"'"+data.createdAt,"'"+data.updatedAt]);
         return {ok:true,item:data};
       }catch(error){if(file)try{file.setTrashed(true)}catch(ignore){}throw error}
