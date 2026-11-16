@@ -1,3 +1,4 @@
+import {beginRead} from './loading-state.js';
 import {createReadCache} from './read-cache.js';
 const reads=createReadCache();
 function readKey(path){const url=new URL(path,'https://grow.invalid');url.searchParams.delete('refresh');url.searchParams.sort();return url.pathname+url.search}
@@ -9,10 +10,13 @@ async function api(path,options={}){
  if(token)headers.authorization=`Bearer ${token}`;
  const method=(options.method||'GET').toUpperCase();
  const request=async()=>{
+ const finish=method==='GET'?beginRead(path.split('?')[0]):()=>{};
+ try{
  const response=await fetch(path,{...options,headers});
  const body=await response.json().catch(()=>({}));
  if(!response.ok){const error=new Error(body.error||'เชื่อมต่อไม่สำเร็จ');error.status=response.status;throw error}
  return body;
+ }finally{finish()}
  };
  if(method==='GET'){
   const url=new URL(path,'https://grow.invalid');

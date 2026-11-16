@@ -1,6 +1,7 @@
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
+import {PageLoading,usePendingRead} from "./page-loading";
 import {contains,roomGeometry} from "./room-geometry";
 import {dayKey, formatDayTH} from "./day";
 import {MusicPlayer, unlockSound, woodStep, winSound, smallWinSound} from "./comfort";
@@ -132,6 +133,8 @@ function findWalkPath(start,end,hitsTable){
 
 function App() {
   const [view, setView] = useState("today");
+  const resource={today:"dashboard",progress:"dashboard",history:"activities",goals:"goals",todos:"todos",reflections:"todos",calendar:"calendar",wins:"wins",summaries:"summaries"}[view];
+  const reading=usePendingRead(`/api/${resource}`);
   const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem("grow-sound") !== "off");
   const soundRef = useRef(soundEnabled);
   soundRef.current = soundEnabled;
@@ -467,8 +470,9 @@ function App() {
           <PixelIcon name="gear" />
         </div>
       </aside>
-      <main>
-        <Suspense fallback={<p className="page" role="status">กำลังเปิดหน้า…</p>}>
+      <main aria-busy={reading}>
+        <PageLoading key={view} active={reading}/>
+        <Suspense fallback={<PageLoading label="กำลังเปิดหน้า…"/>}>
         {view === "today" ? (
           <Today
             {...{
@@ -533,7 +537,7 @@ function App() {
       )}
       <MusicPlayer />
       {stage && (
-        <Suspense fallback={<p role="status">กำลังเปิดห้องโฟกัส…</p>}>
+        <Suspense fallback={<PageLoading label="กำลังเปิดห้องโฟกัส…"/>}>
         <FocusStage
           onClose={() => setStage(false)}
           {...{ timer, setTimer, running, setRunning, phase, setPhase, sessions }}
