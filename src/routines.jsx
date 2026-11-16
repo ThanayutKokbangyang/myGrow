@@ -2,6 +2,7 @@ import React,{useEffect,useRef,useState} from 'react';
 import {useRoutines} from './use-routines';
 import {ROUTINE_ICONS,moveMonth,routineCalendar,routineComplete,routineDateLabel,routineDay,routineMonthCells} from './routine-model';
 import {WinCelebration} from './win-celebration';
+import routineMascot from './assets/tae-checklist-desk-web.webp';
 import './routines.css';
 
 function Glyph({name}){
@@ -37,7 +38,7 @@ export function RoutinePage({onSuccess}){
  return <section className="routinePage" aria-labelledby="routineTitle">
   <header className="rtPageHeader"><div className="rtTitle"><img src="/ui/pixel/routine.svg" width="42" height="42" alt=""/><div><h1 id="routineTitle">รูทีนของเรา</h1><p>ตั้งรูทีนครั้งเดียว ทำต่อทุกวัน เก็บตราให้เต็มเดือน</p></div></div><div className="rtHeaderActions"><span className={`rtSync ${saving?'saving':''}`} role="status">{saving?'กำลังบันทึก…':loaded?'บันทึกกับ Google Sheets':'กำลังเปิดสมุดรูทีน…'}</span><button className="rtSecondary" disabled={saving||loading} onClick={()=>load({date:day.date,month},true)}><Glyph name="refresh"/>โหลดใหม่</button></div></header>
   {error&&<div className="rtError" role="alert"><span>{error}</span><button disabled={saving||loading} onClick={()=>load({date:today,month:today.slice(0,7)},true)}>ลองโหลดวันนี้ใหม่</button></div>}
-  <div className="rtIntro"><img className="rtMascot" src="/ui/tae-checklist-desk-web.webp" width="190" height="160" alt=""/><div><h2>เดือนนี้ เราจะทำอะไรให้ได้ทุกวัน?</h2><p>เพิ่มรายการประจำของเราเพียงครั้งเดียว<br/>รูทีนชุดนี้จะอยู่ให้เช็คทุกวันตลอดเดือน และใช้ต่อในเดือนถัดไป</p><button className="rtPrimary" disabled={!loaded||loading||saving} onClick={()=>{setManage(true);document.getElementById('routineSetup')?.scrollIntoView({behavior:'smooth',block:'start'})}}>ตั้งค่ารูทีนของเรา</button></div></div>
+  <div className="rtIntro"><img className="rtMascot" src={routineMascot} width="190" height="160" alt=""/><div><h2>เดือนนี้ เราจะทำอะไรให้ได้ทุกวัน?</h2><p>เพิ่มรายการประจำของเราเพียงครั้งเดียว<br/>รูทีนชุดนี้จะอยู่ให้เช็คทุกวันตลอดเดือน และใช้ต่อในเดือนถัดไป</p><button className="rtPrimary" disabled={!loaded||loading||saving} onClick={()=>{setManage(true);document.getElementById('routineSetup')?.scrollIntoView({behavior:'smooth',block:'start'})}}>ตั้งค่ารูทีนของเรา</button></div></div>
   <div className="rtWorkspace">
    <section className="rtPanel rtChecklist"><header className="rtPanelHeader"><div><h2>{isToday?'รูทีนวันนี้':'รูทีนที่บันทึกไว้'}</h2><p>{routineDateLabel(day.date)} · {!isToday?'ดูย้อนหลัง':state.todayStarted?'รายการของวันนี้ถูกเก็บไว้แล้ว':'เริ่มจากข้อแรกของเรา'}</p></div>{!isToday&&<button className="rtTextButton" disabled={saving||loading} onClick={()=>view(today,today.slice(0,7))}>กลับมาวันนี้</button>}</header>
     <div className={`rtDaySummary ${stamped?'complete':''}`}><div><b>{loaded?`${completed} / ${day.items.length}`:'—'}</b><span>{stamped?'วันนี้ทำสำเร็จแล้ว!':ready?'ครบแล้ว! ไปปั๊มตรากัน':'ทำทีละข้อในจังหวะของเรา'}</span></div><img src="/ui/pixel/sprout.png" width="42" height="42" alt=""/></div>
