@@ -77,3 +77,60 @@
 @media(max-width:980px){.kanbanPage{height:calc(100dvh - 28px);min-height:500px}.kbColumn{flex-basis:300px}.kbSync{display:none}.kbToolbar{flex-wrap:wrap;gap:10px}.kbSearch{flex:1}.kbSummary{margin-left:0}.kbToolbar>select{max-width:150px}}
 @media(max-width:720px){.kanbanPage{height:calc(100dvh - 100px);min-height:520px}.kbHeader{padding:4px 0 16px;gap:10px}.kbHeading{gap:10px}.kbHeading>img{width:32px;height:32px}.kbHeading h1{font-size:23px}.kbHeading p{font-size:11px}.kbHeaderActions{gap:8px}.kbHeaderActions .kbPrimary{padding:8px 10px;font-size:12px}.kbToolbar{padding:10px;margin-bottom:12px}.kbSearch{flex-basis:calc(100% - 155px)}.kbSearch input{font-size:12px}.kbSummary{flex:1;font-size:11px}.kbToolbar>select{font-size:11px;width:135px}.kanbanPage .kbReload{min-height:34px;font-size:11px;padding:4px 10px}.kbCanvas{gap:12px;scroll-snap-type:x proximity}.kbColumn{flex-basis:min(310px,85vw);scroll-snap-align:start}.kbHint{font-size:10px;padding-top:6px}.kbDrawer{padding:24px 20px}.kbBackdrop{overscroll-behavior:contain}}
 @media(prefers-reduced-motion:reduce){.kanbanPage *{transition:none!important;scroll-behavior:auto!important}}
+
+/* A steady canvas: feedback never changes the board's height. */
+.kbSync{display:inline-flex;align-items:center;gap:7px;min-width:106px;justify-content:flex-end;font-variant-numeric:tabular-nums}
+.kbSync i{width:7px;height:7px;background:#8dbb9e;border-radius:1px}
+.kbSync.saving{color:#f4d991}.kbSync.saving i{background:#e3b757}
+.kbBoardTools{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:-6px 4px 10px;color:#b7c9d5;font-size:11px;min-height:36px}
+.kbScrollControls{display:flex;gap:5px;flex:none}
+.kbScrollControls button{color:#d8e4ef;border:1px solid #455e76;background:#142a45;border-radius:4px;min-width:36px;min-height:32px}
+.kanbanPage .kbClearFilters{border:0;background:#243d55;color:#fff2ce;padding:7px 10px;border-radius:4px;font-size:11px;white-space:nowrap}
+.kbSearch:focus-within{outline:2px solid #e8b955;outline-offset:2px}.kbSearch input:focus-visible{outline:none}
+.kbAnnouncement{position:fixed;left:calc(50% + 32px);bottom:22px;z-index:40;transform:translateX(-50%);display:flex;align-items:center;gap:8px;max-width:min(420px,calc(100vw - 110px));padding:0;background:#e5f0dd;color:#294e3e;border-radius:5px;box-shadow:0 5px 18px #02081130;pointer-events:none;line-height:1.6}
+.kbAnnouncement.visible,.kbAnnouncement:not(:empty){padding:10px 16px;animation:kbNoticeIn 160ms ease-out both}
+.kbAnnouncement:not(.visible){visibility:hidden}
+.kbCanvas{scroll-behavior:auto;scrollbar-gutter:stable;outline-offset:2px;border-radius:6px}
+.kbColumn{border-color:#506174;background:#e8e5d9;border-radius:8px}
+.kbColumnHeader{position:relative;padding:14px 0 12px}.kbColumnDot{width:9px;height:14px;border-radius:2px}
+.kbCard{border-radius:7px;transition:border-color .12s ease,background-color .12s ease,box-shadow .12s ease;cursor:grab}
+.kbCard:hover{box-shadow:0 3px 10px #263d4a12}
+.kbCard.pending:after{content:'';position:absolute;right:11px;top:13px;width:5px;height:5px;background:#b58434;border-radius:1px;pointer-events:none}
+.kbCard.pending .kbCardOpen{padding-right:23px}
+.kbCard.dragging{opacity:.32;box-shadow:none}
+.kbCard.dropBefore:before{height:4px;background:#4e9b83;box-shadow:0 1px 0 #173d31;left:3px;right:3px;border-radius:2px}
+.kanbanPage .kbCardOpen{padding:15px 14px 12px}.kbCardOpen h3{font-size:14px;line-height:1.65}
+.kbCard footer{padding:0 13px 13px}.kbMove select{font-size:11px;min-height:36px;cursor:pointer;transition:background-color .12s ease}
+.kbMove select:hover:not(:disabled){background:#e1e8d8}
+.kbQuickAdd{flex-shrink:0;padding:6px 2px 2px}
+.kbQuickAdd textarea{display:block;box-sizing:border-box;width:100%;resize:vertical;min-height:74px;max-height:160px;padding:12px;border:1px solid #6b8c79;border-radius:5px;background:#fffaf0;color:#263954;font:inherit;font-size:13px;line-height:1.7;caret-color:#28766b}
+.kbQuickAdd textarea::placeholder{color:#60715c;opacity:1}
+.kbQuickAdd>div{display:flex;gap:7px;align-items:center;padding-top:8px}.kbQuickAdd small{margin-left:auto;font-size:10px;color:#52634e}
+.kanbanPage .kbQuickAdd .kbPrimary{font-size:12px;min-height:36px;padding:6px 11px;background:#327b67;color:#fff9e9;border-color:#265f50}
+.kbBackdrop{animation:kbBackdropIn 170ms ease-out both}
+.kbDrawer{animation:kbDrawerIn 230ms cubic-bezier(.16,1,.3,1) both;overscroll-behavior:contain}
+.kbBackdrop.closing{animation:kbBackdropOut 150ms ease-in both;pointer-events:none}
+.kbBackdrop.closing .kbDrawer{animation:kbDrawerOut 150ms ease-in both}
+.kbDrawer>header{padding-bottom:20px;margin-bottom:24px;border-bottom:1px solid #dad8c2}
+.kbDrawer .kbEditorActions{position:sticky;bottom:0;z-index:1;background:#fff3dc;padding:14px 0 10px;margin-top:16px}
+.kbKeyboardHint{display:block;font-size:10px;color:#5d6b54;line-height:1.7;margin-top:4px}
+@keyframes kbDrawerIn{from{opacity:.4;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
+@keyframes kbDrawerOut{to{opacity:0;transform:translateX(28px)}}
+@keyframes kbBackdropIn{from{background:#06122400}to{background:#06122499}}
+@keyframes kbBackdropOut{to{background:#06122400}}
+@keyframes kbNoticeIn{from{opacity:.5}to{opacity:1}}
+@media(max-width:980px){.kanbanPage{min-height:0}.kbSync{display:none}}
+@media(max-width:720px){
+ .kanbanPage{height:calc(100dvh - 100px);min-height:0}
+ .kbBoardTools>span{font-size:10px;line-height:1.6}.kbBoardTools{margin-bottom:8px;gap:8px}
+ .kbScrollControls button{min-height:36px;min-width:36px}
+ .kbAnnouncement{left:50%;bottom:calc(90px + env(safe-area-inset-bottom));max-width:calc(100vw - 32px);width:max-content;font-size:11px}
+ .kbMove select{min-height:44px;font-size:11px}.kanbanPage .kbIconButton{min-height:40px;min-width:36px}
+ .kbToolbar{row-gap:9px}.kbToolbar .kbClearFilters{font-size:10px}
+ .kbDrawer{padding-bottom:max(24px,env(safe-area-inset-bottom))}
+ .kbKeyboardHint,.kbQuickAdd small{display:none}
+}
+@media(prefers-reduced-motion:reduce){
+ .kbBackdrop,.kbDrawer,.kbBackdrop.closing,.kbBackdrop.closing .kbDrawer,.kbAnnouncement.visible{animation:none}
+ .kbCanvas{scroll-behavior:auto}
+}

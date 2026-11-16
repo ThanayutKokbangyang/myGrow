@@ -43,3 +43,9 @@ The first board request creates a `Kanban` tab with three columns: สิ่ง�
 Updates validate the whole resulting board under a script lock and check per-item revisions to reject stale changes from another tab. A bounded rectangular write stores literal text and clears removed rows. The client sends only changed operations, keeps the server's resulting revisions, and rolls back optimistic UI changes on failure. Reload before retrying a conflict. The API inherits the site's existing password/session checks. No extra environment variables or database setup are required.
 
 On desktop, drag cards onto a card to insert before it, or onto a column to append. On mobile and with a keyboard, use the column selector under each card. Column arrow buttons reorder columns. Search and priority filters affect only the view, not stored cards.
+
+### Board interaction refinements
+
+The board keeps a serialized browser save queue: moves update immediately while earlier writes are still pending, then pending edits are rebased on acknowledged revisions. A failure restores the last confirmed snapshot, and another tab's unrelated changes cause a conflict rather than being silently overwritten. The queue survives switching modes, and the lock action discards private in-memory state. A freshly saved board is reused for up to one minute; โหลดใหม่ explicitly refreshes it.
+
+Use เพิ่มการ์ด at the bottom of a column to type a title inline, then Enter to add it (Shift+Enter inserts a line break). Open a card for full details; Ctrl/Command+Enter saves and Escape closes. Edge scrolling assists desktop dragging, arrow buttons scroll the board, and mobile retains its per-card column selector. Motion respects reduced-motion preferences. These interaction changes require no further Apps Script changes beyond the Kanban version above.
