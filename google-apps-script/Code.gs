@@ -765,7 +765,7 @@ function calendar_(body) {
 }
 
 // One private Kanban board. Validate the complete result before writing it.
-const KANBAN_HEADERS = ['id','type','columnId','title','detail','priority','due','order','tone','done','revision','updatedAt'];
+const KANBAN_HEADERS = ['id','type','columnId','title','detail','priority','due','order','tone','done','revision','updatedAt','month'];
 function kanbanInput_(raw) {
   if (!raw || typeof raw !== 'object') throw new Error('ข้อมูลการ์ดไม่ถูกต้อง');
   const text = (key, max) => {
@@ -773,14 +773,20 @@ function kanbanInput_(raw) {
     if (value.length > max) throw new Error('ข้อความยาวเกินไป (' + key + ')');
     return value;
   };
-  const item = {id:text('id',100),type:text('type',10),columnId:text('columnId',100),title:text('title',180),detail:text('detail',5000),priority:text('priority',10)||'normal',due:text('due',10),order:Number(raw.order),tone:text('tone',10)||'gold',done:raw.done===true||raw.done==='yes'};
+  const item = {id:text('id',100),type:text('type',10),columnId:text('columnId',100),title:text('title',180),detail:text('detail',5000),priority:text('priority',10)||'normal',due:text('due',10),order:Number(raw.order),tone:text('tone',10)||'gold',done:raw.done===true||raw.done==='yes',month:text('month',7)};
   if (!item.id || !item.title || ['column','card'].indexOf(item.type)<0) throw new Error('กรอกชื่อให้ครบก่อนบันทึก');
   if (!Number.isSafeInteger(item.order) || item.order<0 || item.order>10000) throw new Error('ลำดับไม่ถูกต้อง');
   if (['normal','high','urgent'].indexOf(item.priority)<0 || ['gold','blue','green','purple','rose'].indexOf(item.tone)<0) throw new Error('สีหรือความสำคัญไม่ถูกต้อง');
   if (item.type==='card' && !item.columnId) throw new Error('กรุณาเลือกคอลัมน์');
-  if (item.type==='column') {item.columnId='';item.detail='';item.due='';item.priority='normal';}
+  if (item.type==='column') {item.columnId='';item.detail='';item.due='';item.priority='normal';item.month='';}
+  if(item.month&&!/^\d{4}-(0[1-9]|1[0-2])$/.test(item.month))throw new Error('เดือนของงานไม่ถูกต้อง');
   if (item.due && (!/^\d{4}-\d{2}-\d{2}$/.test(item.due) || isNaN(new Date(item.due+'T12:00:00Z').getTime()) || Utilities.formatDate(new Date(item.due+'T12:00:00Z'),'UTC','yyyy-MM-dd')!==item.due)) throw new Error('วันครบกำหนดไม่ถูกต้อง');
   return item;
+}
+function kanbanMonth_(item){
+  if(item.due)return String(item.due).slice(0,7);
+  const date=item.updatedAt?new Date(item.updatedAt):new Date();
+  return isNaN(date.getTime())?'':Utilities.formatDate(date,'Asia/Bangkok','yyyy-MM');
 }
 function kanban_(body) {
   const lock=LockService.getScriptLock();lock.waitLock(30000);
@@ -792,15 +798,18 @@ function kanban_(body) {
       sheet.getRange(1,1,1,KANBAN_HEADERS.length).setValues([KANBAN_HEADERS]);
       sheet.setFrozenRows(1);
       const now=new Date().toISOString();
-      const defaults=[['list-todo','สิ่งที่ต้องทำ','gold',false],['list-doing','กำลังทำ','blue',false],['list-done','เสร็จแล้ว','green',true]].map((value,order)=>({id:value[0],type:'column',columnId:'',title:value[1],detail:'',priority:'normal',due:'',order:order,tone:value[2],done:value[3],revision:1,updatedAt:now}));
+      const defaults=[['list-todo','สิ่งที่ต้องทำ','gold',false],['list-doing','กำลังทำ','blue',false],['list-done','เสร็จแล้ว','green',true]].map((value,order)=>({id:value[0],type:'column',columnId:'',title:value[1],detail:'',priority:'normal',due:'',order:order,tone:value[2],done:value[3],revision:1,updatedAt:now,month:''}));
       sheet.getRange(2,1,defaults.length,KANBAN_HEADERS.length).setNumberFormat('@').setValues(defaults.map(item=>KANBAN_HEADERS.map(key=>"'"+String(key==='done'?(item.done?'yes':''):item[key]))));
     }
+    // Extend only the known legacy schema; never overwrite existing task columns.
+    const header=sheet.getRange(1,1,1,KANBAN_HEADERS.length).getDisplayValues()[0];
+    if(header.slice(0,-1).join('|')===KANBAN_HEADERS.slice(0,-1).join('|')&&!header[header.length-1])sheet.getRange(1,KANBAN_HEADERS.length,1,1).setValues([['month']]);
     if (sheet.getRange(1,1,1,KANBAN_HEADERS.length).getDisplayValues()[0].join('|')!==KANBAN_HEADERS.join('|')) throw new Error('หัวตาราง Kanban ไม่ตรงกับเวอร์ชันนี้');
     const count=Math.max(0,sheet.getLastRow()-1);
     if (count>512) throw new Error('บอร์ดรองรับไม่เกิน 500 การ์ดและ 12 คอลัมน์');
     const items=count?sheet.getRange(2,1,count,KANBAN_HEADERS.length).getDisplayValues().filter(row=>String(row[0]).trim()).map(row=>{
       const item=Object.fromEntries(KANBAN_HEADERS.map((key,index)=>[key,row[index]]));
-      item.order=Number(item.order)||0;item.revision=Number(item.revision)||0;item.done=item.done==='yes';return item;
+      item.order=Number(item.order)||0;item.revision=Number(item.revision)||0;item.done=item.done==='yes';if(item.type==='card'&&!item.month)item.month=kanbanMonth_(item);return item;
     }):[];
     if (body.action==='kanban_list') return {ok:true,items:items};
     if (body.action!=='kanban_apply' || !Array.isArray(body.changes) || !body.changes.length || body.changes.length>750) throw new Error('INVALID_CHANGES');
@@ -812,6 +821,7 @@ function kanban_(body) {
       if (op.type==='delete') {next.delete(op.id);return;}
       const item=kanbanInput_(op.item);
       if (item.id!==op.id || old && old.type!==item.type) throw new Error('INVALID_ID');
+      if(item.type==='card'&&!item.month)item.month=old&&old.month||kanbanMonth_(item);
       item.revision=(old?old.revision:0)+1;item.updatedAt=new Date().toISOString();next.set(item.id,item);
     });
     const result=Array.from(next.values()),columns=result.filter(item=>item.type==='column'),cards=result.filter(item=>item.type==='card');

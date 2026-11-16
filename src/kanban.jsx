@@ -1,7 +1,7 @@
 import React,{useDeferredValue,useEffect,useMemo,useRef,useState} from 'react';
 import {dayKey} from './day';
 import {useKanban} from './use-kanban';
-import {cardsOf,columnsOf,dueState,moveCard,newId,PRIORITIES,TONES} from './kanban-model';
+import {cardMonth,cardsInMonth,shiftBoardMonth,cardsOf,columnsOf,dueState,moveCard,newId,PRIORITIES,TONES} from './kanban-model';
 import {useBoardMotion,useBoardNavigation,useDragScroll} from './kanban-motion';
 import './kanban.css';
 
@@ -10,10 +10,10 @@ function Icon({name,...props}){
  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}><path d={paths[name]||paths.plus}/></svg>;
 }
 const dateLabel=date=>new Date(date+'T12:00:00+07:00').toLocaleDateString('th-TH',{day:'numeric',month:'short'});
-const blankCard=columnId=>({id:newId(),type:'card',columnId,title:'',detail:'',priority:'normal',due:'',order:0,tone:'gold',done:false,revision:0});
+const blankCard=(columnId,month)=>({id:newId(),type:'card',columnId,title:'',detail:'',priority:'normal',due:'',order:0,tone:'gold',done:false,revision:0,month});
 
 function CardEditor({item,columns,busy,error,onClose,onSave,onDelete}){
- const [form,setForm]=useState(item),[confirm,setConfirm]=useState(false),[closing,setClosing]=useState(false);
+ const [form,setForm]=useState(()=>({...item,month:cardMonth(item)==='unassigned'?dayKey().slice(0,7):cardMonth(item)})),[confirm,setConfirm]=useState(false),[closing,setClosing]=useState(false);
  const closeTimer=useRef(null),formRef=useRef(null);
  const close=()=>{if(busy||closing)return;setClosing(true);closeTimer.current=setTimeout(onClose,matchMedia('(prefers-reduced-motion: reduce)').matches?0:150)};
  useEffect(()=>()=>clearTimeout(closeTimer.current),[]);
@@ -42,6 +42,7 @@ function CardEditor({item,columns,busy,error,onClose,onSave,onDelete}){
    <header><div><h2 id="kbEditorTitle">{item.revision?'รายละเอียดการ์ด':'เพิ่มการ์ดใหม่'}</h2><p>เก็บรายละเอียด แล้วค่อยลงมือทำ</p></div><button className="kbIconButton" disabled={busy||closing} onClick={close} aria-label="ปิดรายละเอียด"><Icon name="close"/></button></header>
    <form ref={formRef} onSubmit={async event=>{event.preventDefault();if(busy||closing)return;if(await onSave({...form,title:form.title.trim(),detail:form.detail.trim()}))close()}}>
     <label>ชื่องาน<input required maxLength={180} value={form.title} disabled={busy} onChange={event=>set('title',event.target.value)} placeholder="งานนี้เราจะทำอะไร?"/></label>
+    <label>เดือนของงาน<input type="month" required value={form.month} disabled={busy} onChange={event=>set('month',event.target.value)}/><small>การ์ดจะแสดงในบอร์ดของเดือนนี้ แยกจากวันครบกำหนด</small></label>
     <label>รายละเอียด<textarea rows="6" maxLength={5000} value={form.detail} disabled={busy} onChange={event=>set('detail',event.target.value)} placeholder="สิ่งที่ต้องทำ ลิงก์ หรือโน้ตที่อยากเก็บไว้"/></label>
     <label>คอลัมน์<select value={form.columnId} disabled={busy} onChange={event=>set('columnId',event.target.value)}>{columns.map(column=><option key={column.id} value={column.id}>{column.title}</option>)}</select></label>
     <div className="kbFormRow"><label>ความสำคัญ<select value={form.priority} disabled={busy} onChange={event=>set('priority',event.target.value)}>{Object.entries(PRIORITIES).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label><label>วันครบกำหนด<input type="date" value={form.due} disabled={busy} onChange={event=>set('due',event.target.value)}/></label></div>
@@ -66,13 +67,13 @@ function ColumnForm({column,busy,error,count,canDelete,onSave,onDelete,onCancel}
  </form>;
 }
 
-function QuickAdd({columnId,disabled,onSave,onCancel}){
+function QuickAdd({columnId,month,disabled,onSave,onCancel}){
  const [title,setTitle]=useState(''),[saving,setSaving]=useState(false);
  const input=useRef(null);
  async function submit(event){
   event.preventDefault();if(saving||!title.trim())return;
   setSaving(true);
-  if(await onSave({...blankCard(columnId),title:title.trim()})){setTitle('');requestAnimationFrame(()=>input.current?.focus())}
+  if(await onSave({...blankCard(columnId,month),title:title.trim()})){setTitle('');requestAnimationFrame(()=>input.current?.focus())}
   setSaving(false);
  }
  return <form className="kbQuickAdd" onSubmit={submit}>
@@ -83,6 +84,10 @@ function QuickAdd({columnId,disabled,onSave,onCancel}){
 
 export function KanbanBoard(){
  const {items,ready,busy,saving,refreshing,error,notice,pendingIds,persist,refresh}=useKanban();
+ const currentMonth=dayKey().slice(0,7);
+ const [month,setMonth]=useState(()=>dayKey().slice(0,7));
+ const creationMonth=/^\d{4}-\d{2}$/.test(month)?month:currentMonth;
+ function selectMonth(value){if(!value)return;setMonth(value);setAdding(null);setDrag(null);setTarget(null)}
  const [query,setQuery]=useState(''),[priority,setPriority]=useState('all'),[editing,setEditing]=useState(null),[columnForm,setColumnForm]=useState(null);
  const [drag,setDrag]=useState(null),[target,setTarget]=useState(null),[adding,setAdding]=useState(null),[editorSaving,setEditorSaving]=useState(false),[toastVisible,setToastVisible]=useState(false);
  const canvas=useRef(null),searchInput=useRef(null);
@@ -93,16 +98,16 @@ export function KanbanBoard(){
  useEffect(()=>{setToastVisible(Boolean(notice));if(!notice)return;const timer=setTimeout(()=>setToastVisible(false),3500);return()=>clearTimeout(timer)},[notice]);
  const columns=useMemo(()=>columnsOf(items),[items]);
  const today=dayKey();
- const allCards=items.filter(item=>item.type==='card'),doneIds=new Set(columns.filter(column=>column.done).map(column=>column.id));
+ const allCards=cardsInMonth(items,month),doneIds=new Set(columns.filter(column=>column.done).map(column=>column.id));
  const doneCount=allCards.filter(card=>doneIds.has(card.columnId)).length;
- const visible=card=>(priority==='all'||card.priority===priority)&&(!deferredQuery.trim()||[card.title,card.detail].join(' ').toLowerCase().includes(deferredQuery.trim().toLowerCase()));
+ const visible=card=>(month==='all'||cardMonth(card)===month)&&(priority==='all'||card.priority===priority)&&(!deferredQuery.trim()||[card.title,card.detail].join(' ').toLowerCase().includes(deferredQuery.trim().toLowerCase()));
  const locked=refreshing||!ready,filtered=Boolean(query.trim())||priority!=='all';
  async function saveCard(form){
   return persist(current=>{
    const old=current.find(item=>item.id===form.id);
    const next=old?moveCard(current,old.id,form.columnId,old.columnId===form.columnId?old.id:null):current;
    const moved=next.find(item=>item.id===form.id);
-   const card={...form,revision:moved?.revision??0,order:moved?.order??(Math.max(-1,...cardsOf(next,form.columnId).map(item=>item.order))+1)};
+   const card={...form,month:form.month||creationMonth,revision:moved?.revision??0,order:moved?.order??(Math.max(-1,...cardsOf(next,form.columnId).map(item=>item.order))+1)};
    return old?next.map(item=>item.id===form.id?card:item):[...next,card];
   },form.revision?'อัปเดตการ์ดแล้ว':'เพิ่มการ์ดแล้ว พร้อมเริ่มเลย');
  }
@@ -113,7 +118,7 @@ export function KanbanBoard(){
   await persist(current=>moveCard(current,id,columnId,beforeId),`ย้ายการ์ดไป “${column?.title}” แล้ว`);
  }
  function insertion(event,columnId,cardId){
-  const cards=cardsOf(items,columnId).filter(card=>card.id!==drag);
+  const cards=cardsOf(items,columnId).filter(card=>card.id!==drag&&visible(card));
   const index=cards.findIndex(card=>card.id===cardId),rect=event.currentTarget.getBoundingClientRect();
   return event.clientY<rect.top+rect.height/2?cardId:cards[index+1]?.id||null;
  }
@@ -136,7 +141,8 @@ export function KanbanBoard(){
   await persist(current=>current.map(item=>item.type==='column'?{...item,order:order.indexOf(item.id)}:item),'ย้ายลำดับคอลัมน์แล้ว');
  }
  return <section className="kanbanPage" aria-labelledby="kbTitle">
-  <header className="kbHeader"><div className="kbHeading"><img src="/ui/pixel/board.svg" width="40" height="40" alt=""/><div><h1 id="kbTitle">บอร์ดงาน</h1><p>ค่อย ๆ ขยับงาน ทีละใบ</p></div></div><div className="kbHeaderActions"><span className={`kbSync ${saving?'saving':ready?'saved':''}`} role="status"><i/>{saving?'กำลังบันทึก…':ready?'บันทึกแล้ว':'กำลังเชื่อมต่อบอร์ด…'}</span><button className="kbPrimary" disabled={locked||!columns.length} onClick={()=>setEditing(blankCard(columns[0].id))}><Icon name="plus"/>เพิ่มการ์ด</button></div></header>
+  <header className="kbHeader"><div className="kbHeading"><img src="/ui/pixel/board.svg" width="40" height="40" alt=""/><div><h1 id="kbTitle">บอร์ดงาน</h1><p>ค่อย ๆ ขยับงาน ทีละใบ</p></div></div><div className="kbHeaderActions"><span className={`kbSync ${saving?'saving':ready?'saved':''}`} role="status"><i/>{saving?'กำลังบันทึก…':ready?'บันทึกแล้ว':'กำลังเชื่อมต่อบอร์ด…'}</span><button className="kbPrimary" disabled={locked||!columns.length} onClick={()=>setEditing(blankCard(columns[0].id,creationMonth))}><Icon name="plus"/>เพิ่มการ์ด</button></div></header>
+  <div className="kbMonthBar"><div className="kbMonthPicker"><button aria-label="เดือนก่อนหน้า" onClick={()=>selectMonth(shiftBoardMonth(creationMonth,-1))}><Icon name="left"/></button><label><span>เดือนของบอร์ด</span><input type="month" value={creationMonth} onChange={event=>selectMonth(event.target.value)}/></label><button aria-label="เดือนถัดไป" onClick={()=>selectMonth(shiftBoardMonth(creationMonth,1))}><Icon name="right"/></button></div><div className="kbMonthActions"><button aria-pressed={month===currentMonth} onClick={()=>selectMonth(currentMonth)}>เดือนนี้</button><button aria-pressed={month==='all'} onClick={()=>selectMonth('all')}>ดูทั้งหมด</button>{items.some(item=>item.type==='card'&&cardMonth(item)==='unassigned')&&<button aria-pressed={month==='unassigned'} onClick={()=>selectMonth('unassigned')}>ยังไม่ระบุเดือน</button>}</div><p>{month==='all'?'แสดงงานทุกเดือน':month==='unassigned'?'เปิดรายละเอียดการ์ดเพื่อกำหนดเดือน':'เพิ่มการ์ดใหม่ลงเดือนที่เลือก · เปลี่ยนเดือนได้ในรายละเอียด'}</p></div>
   <div className="kbToolbar"><label className={`kbSearch ${query?'hasQuery':''}`}><Icon name="search"/><input ref={searchInput} aria-label="ค้นหาการ์ด" placeholder="ค้นหางานในบอร์ด…" value={query} onChange={event=>setQuery(event.target.value)}/>{query&&<button onClick={()=>setQuery('')} aria-label="ล้างคำค้น"><Icon name="close"/></button>}</label><select aria-label="กรองความสำคัญ" value={priority} onChange={event=>setPriority(event.target.value)}><option value="all">ทุกความสำคัญ</option>{Object.entries(PRIORITIES).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select>{filtered&&<button className="kbClearFilters" onClick={()=>{setQuery('');setPriority('all');searchInput.current?.focus()}}>ล้างตัวกรอง</button>}<span className="kbSummary">{ready?`${allCards.length} การ์ด · เสร็จแล้ว ${doneCount}`:'กำลังเปิดบอร์ด…'}</span><button className="kbReload" disabled={busy} onClick={refresh}><Icon name="refresh"/>โหลดใหม่</button></div>
   {error&&<div className="kbError" role="alert"><strong>บันทึกหรือโหลดบอร์ดไม่สำเร็จ</strong><span>{error}</span><button disabled={busy} onClick={refresh}>ลองโหลดใหม่</button></div>}
   <div className="kbBoardTools"><span>{filtered?'กำลังกรองการ์ดในบอร์ด':'ลากการ์ดเพื่อจัดงาน หรือกดเพื่อเปิดรายละเอียด'}</span><div className="kbScrollControls"><button aria-label="เลื่อนบอร์ดไปทางซ้าย" disabled={navigation.start} onClick={()=>navigation.scroll(-1)}><Icon name="left"/></button><button aria-label="เลื่อนบอร์ดไปทางขวา" disabled={navigation.end} onClick={()=>navigation.scroll(1)}><Icon name="right"/></button></div></div>
@@ -144,10 +150,10 @@ export function KanbanBoard(){
   <div className="kbCanvas" ref={canvas} aria-label="คอลัมน์งาน" tabIndex="0">
    {!ready&&!error&&<div className="kbSkeleton" aria-hidden="true">{[0,1,2].map(index=><div key={index}><i/><span/><span/></div>)}</div>}
    {columns.map((column,index)=>{
-    const cards=cardsOf(items,column.id),shown=cards.filter(visible);
+    const totalCards=cardsOf(items,column.id),cards=totalCards.filter(card=>month==='all'||cardMonth(card)===month),shown=cards.filter(visible);
     return <section className={`kbColumn kbTone-${column.tone} ${target?.columnId===column.id&&!target.beforeId?'dropActive':''}`} key={column.id} aria-label={column.title} onDragOver={event=>over(event,column.id)} onDrop={event=>drop(event,column.id)}>
      <header className="kbColumnHeader"><span className="kbColumnDot"/><h2>{column.title}</h2><span className="kbCount">{filtered?`${shown.length}/${cards.length}`:cards.length}</span><button className="kbIconButton" disabled={locked} onClick={()=>setColumnForm(columnForm?.id===column.id?null:column)} aria-label={`ตั้งค่าคอลัมน์ ${column.title}`} title="ตั้งค่าคอลัมน์"><Icon name="edit"/></button></header>
-     {columnForm?.id===column.id?<ColumnForm column={columnForm} count={cards.length} canDelete={columns.length>1} busy={busy} error={error} onSave={saveColumn} onDelete={async()=>{if(await persist(current=>current.filter(item=>item.id!==column.id),'ลบคอลัมน์แล้ว'))setColumnForm(null)}} onCancel={()=>setColumnForm(null)}/>:<>
+     {columnForm?.id===column.id?<ColumnForm column={columnForm} count={totalCards.length} canDelete={columns.length>1} busy={busy} error={error} onSave={saveColumn} onDelete={async()=>{if(await persist(current=>current.filter(item=>item.id!==column.id),'ลบคอลัมน์แล้ว'))setColumnForm(null)}} onCancel={()=>setColumnForm(null)}/>:<>
       <div className="kbCards">{shown.map(card=>{
        const due=dueState(card.due,today),completed=column.done;
        return <article key={card.id} data-card-id={card.id} className={`kbCard ${pendingIds.includes(card.id)?'pending':''} ${drag===card.id?'dragging':''} ${target?.beforeId===card.id?'dropBefore':''} ${completed?'complete':''}`} draggable={!locked} onDragStart={event=>{if(locked){event.preventDefault();return}setDrag(card.id);event.dataTransfer.setData('text/plain',card.id);event.dataTransfer.effectAllowed='move'}} onDragEnd={()=>{setDrag(null);setTarget(null)}} onDragOver={event=>over(event,column.id,insertion(event,column.id,card.id))} onDrop={event=>drop(event,column.id,insertion(event,column.id,card.id))}>
@@ -156,7 +162,7 @@ export function KanbanBoard(){
        </article>;
       })}</div>
       {!shown.length&&<div className="kbEmptyColumn"><img src={`/ui/pixel/${column.done?'check':'plus'}.png`} width="26" height="26" alt=""/><p>{filtered?'ไม่พบการ์ดที่ตรงกับตัวกรอง':column.done?'งานที่เสร็จแล้วจะมาอยู่ตรงนี้':'เพิ่มการ์ด หรือลากงานมาวางที่นี่'}</p></div>}
-      {adding===column.id?<QuickAdd columnId={column.id} disabled={locked} onSave={saveCard} onCancel={()=>setAdding(null)}/>:<button className="kbAddCard" disabled={locked} onClick={()=>{setAdding(column.id);setColumnForm(null)}}><Icon name="plus"/>เพิ่มการ์ด</button>}
+      {adding===column.id?<QuickAdd key={month} columnId={column.id} month={creationMonth} disabled={locked} onSave={saveCard} onCancel={()=>setAdding(null)}/>:<button className="kbAddCard" disabled={locked} onClick={()=>{setAdding(column.id);setColumnForm(null)}}><Icon name="plus"/>เพิ่มการ์ด</button>}
       <div className="kbColumnOrder"><button disabled={locked||index===0} onClick={()=>shiftColumn(column.id,-1)} aria-label={`ย้ายคอลัมน์ ${column.title} ไปทางซ้าย`}><Icon name="left"/></button><span>{column.done?'คอลัมน์งานที่เสร็จแล้ว':'ลากการ์ดเพื่อย้ายงาน'}</span><button disabled={locked||index===columns.length-1} onClick={()=>shiftColumn(column.id,1)} aria-label={`ย้ายคอลัมน์ ${column.title} ไปทางขวา`}><Icon name="right"/></button></div>
      </>}
     </section>;

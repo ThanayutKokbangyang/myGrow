@@ -134,3 +134,13 @@
  .kbBackdrop,.kbDrawer,.kbBackdrop.closing,.kbBackdrop.closing .kbDrawer,.kbAnnouncement.visible{animation:none}
  .kbCanvas{scroll-behavior:auto}
 }
+
+/* Month selection follows the board's existing navy toolbar controls. */
+.kbMonthBar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;color:#d8e4ef;padding:0 4px 14px;flex-shrink:0}
+.kbMonthPicker,.kbMonthActions{display:flex;align-items:center;gap:8px}
+.kbMonthPicker label{display:flex;align-items:center;gap:10px;font-size:13px}
+.kbMonthPicker input{min-height:40px;max-width:180px;color:#fff2ce;color-scheme:dark;background:#0d2039;border:1px solid #556780;border-radius:4px;padding:7px 10px}
+.kbMonthBar button{background:#142a45;color:#d8e4ef;border:1px solid #556780;border-radius:4px;padding:7px 10px}
+.kbMonthBar button:hover{background:#24415f}.kbMonthBar button[aria-pressed=true]{background:#f2cb73;color:#302b22;border-color:#f2cb73}
+.kbMonthBar p{width:100%;margin:0;color:#c4d1db;font-size:12px}
+@media(max-width:600px){.kbMonthBar{gap:10px}.kbMonthPicker{width:100%;justify-content:space-between}.kbMonthPicker label{flex:1;justify-content:center}.kbMonthPicker label span{font-size:12px}.kbMonthPicker input{max-width:150px;min-width:0}.kbMonthActions{flex-wrap:wrap}}
