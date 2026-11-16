@@ -1,12 +1,16 @@
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
+import {ActivityForm} from "./activity-form";
+import {learningDay} from "./learning-model";
 import {AccessGate} from "./access-gate";
 import "./styles.css";
 import {PageLoading,usePendingRead} from "./page-loading";
 import {contains,roomGeometry} from "./room-geometry";
-import {dayKey, formatDayTH} from "./day";
 import {MusicPlayer, unlockSound, woodStep, winSound, smallWinSound} from "./comfort";
 const FocusStage = lazy(() => import("./focus-stage").then(module => ({default: module.FocusStage})));
+const TodayPage = lazy(() => import("./learning-pages").then(module => ({default: module.TodayPage})));
+const ActivityHistory = lazy(() => import("./learning-pages").then(module => ({default: module.ActivityHistory})));
+const LearningStats = lazy(() => import("./learning-pages").then(module => ({default: module.LearningStats})));
 const KanbanBoard = lazy(() => import("./kanban").then(module => ({default: module.KanbanBoard})));
 const Goals = lazy(() => import("./goals").then(module => ({default: module.Goals})));
 const Todos = lazy(() => import("./todos").then(module => ({default: module.Todos})));
@@ -18,9 +22,9 @@ import {
   lockSite,
   clearOwnerToken,
   createActivity,
+  updateActivity,
   deleteActivity,
   hasOwnerToken,
-  loadActivities,
   loadDashboard,
   verifyOwner,
 } from "./api";
@@ -61,17 +65,16 @@ const EMPTY = {
   skill: "english",
   topic: "",
   minutes: 25,
-  before: 2,
-  after: 3,
-  difficulty: 3,
+  before: 0,
+  after: 0,
+  difficulty: 0,
   learned: "",
   problem: "",
   next: "",
 };
 // Days start at 05:00 (see day.js), so a session logged at 01:00 still counts
 // as the day before rather than starting a fresh one.
-const dateKey = (d) => dayKey(new Date(d));
-const dateLabel = (key) => formatDayTH(key, { day: "numeric", month: "short", year: "numeric" });
+const dateKey = (d) => learningDay(d);
 function findWalkPath(start,end,hitsTable){
   const step=1,minX=3,maxX=97,minY=12,maxY=94;
   const cols=Math.floor((maxX-minX)/step)+1,rows=Math.floor((maxY-minY)/step)+1;
@@ -136,7 +139,9 @@ function findWalkPath(start,end,hitsTable){
 
 function App() {
   const [view, setView] = useState("today");
-  const resource={today:"dashboard",progress:"dashboard",history:"activities",goals:"goals",todos:"todos",reflections:"todos",calendar:"calendar",wins:"wins",summaries:"summaries",kanban:"kanban"}[view];
+  const [currentLearningDay,setCurrentLearningDay]=useState(()=>learningDay());
+  useEffect(()=>{const tick=()=>setCurrentLearningDay(learningDay());const timer=setInterval(tick,30000);window.addEventListener('focus',tick);return()=>{clearInterval(timer);window.removeEventListener('focus',tick)}},[]);
+  const resource={today:"dashboard",progress:"learning-stats",history:"activities",goals:"goals",todos:"todos",reflections:"todos",calendar:"calendar",wins:"wins",summaries:"summaries",kanban:"kanban"}[view];
   const reading=usePendingRead(`/api/${resource}`);
   const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem("grow-sound") !== "off");
   const soundRef = useRef(soundEnabled);
@@ -147,7 +152,12 @@ function App() {
   const celebrateSound = () => { if(soundRef.current) winSound(); };
   const [logs, setLogs] = useState([]);
   const [summary,setSummary]=useState({total:0,minutes:0,gain:0,activeDays:0,streak:0,xp:0,totals:{english:0,coding:0,math:0,cognitive:0}});
+  const [dashboardReady,setDashboardReady]=useState(false),[dashboardError,setDashboardError]=useState(''),[learningVersion,setLearningVersion]=useState(0),[saveError,setSaveError]=useState('');
+  const dashboardRequest=useRef(0);
   const [modal, setModal] = useState(null);
+  useEffect(()=>setSaveError(''),[modal]);
+  const openActivity=skill=>{setSaveError('');setModal({...EMPTY,skill:skill||'english'})};
+  const editActivity=item=>{setSaveError('');setModal(item)};
   const [verify, setVerify] = useState(null);
   const [toast, setToast] = useState("");
   const [celebrating, setCelebrating] = useState(false);
@@ -202,8 +212,9 @@ function App() {
     return () => clearInterval(timer);
   }, [walking, view, soundEnabled]);
   async function refreshDashboard(force=false){
-    try{const result=await loadDashboard(force);setLogs(result.todayItems||[]);if(result.summary)setSummary(result.summary);}
-    catch(error){notify(error.message)}
+    const request=++dashboardRequest.current;setDashboardError('');
+    try{let result=await loadDashboard(force);if(result.today!==learningDay())result=await loadDashboard(true);if(request!==dashboardRequest.current)return;setLogs(result.todayItems||[]);if(result.summary)setSummary(result.summary);setDashboardReady(true)}
+    catch(error){if(request===dashboardRequest.current)setDashboardError(error.message)}
   }
   useEffect(() => {
     ["down", "up", "left", "right"].forEach((name) => {
@@ -211,7 +222,7 @@ function App() {
       image.src = `/sprite/directions/${name}.png`;
     });
   }, []);
-  useEffect(()=>{if(view==='progress'||view==='today')refreshDashboard()},[view]);
+  useEffect(()=>{if(view==='today')refreshDashboard()},[view,currentLearningDay]);
   useEffect(() => localStorage.setItem("grow-sessions", sessions), [sessions]);
   // Lets the floating music player lift itself above the focus stage, so the
   // video can be muted and a different track played over it.
@@ -231,7 +242,7 @@ function App() {
             if (phase === "focus") {
               setSessions((s) => s + 1);
               setPhase("break");
-              notify("Pomodoro สำเร็จ! +25 XP · พัก 5 นาที");
+              notify("โฟกัสครบ 25 นาทีแล้ว · พัก 5 นาที");
               playFinish();
               return BREAK_SECONDS;
             }
@@ -255,14 +266,12 @@ function App() {
     },
     [],
   );
-  const today = dateKey(new Date());
+  const today = currentLearningDay;
   const todayLogs = logs.filter((x) => dateKey(x.date) === today);
-  const minutes = todayLogs.reduce((a, b) => a + Number(b.minutes), 0);
-  const xp = Number(summary.xp||0) + sessions * 25;
+  const xp = Number(summary.xp||0);
   // Consecutive days, not "days ever logged": a gap resets it. Today being
   // empty so far does not break the run -- only a whole missed day does.
   const streak = Number(summary.streak||0);
-  const activeDays = Number(summary.activeDays||0);
   const notify = (t) => {
     setToast(t);
     setTimeout(() => setToast(""), 2400);
@@ -354,75 +363,25 @@ function App() {
     notify("ยังเดินเข้าโต๊ะนี้ไม่ได้ ลองขยับออกมาก่อนนะ");
   }
   async function saveNow(data) {
-    const item = {
-      ...data,
-      id: String(Date.now()),
-      date: new Date().toISOString(),
-      minutes: Number(data.minutes),
-      before: Number(data.before),
-      after: Number(data.after),
-      difficulty: Number(data.difficulty),
-    };
-    try {
-      const result = await createActivity(item);
-      const saved = result.item || item;
-      setLogs((v) => [saved, ...v.filter((x) => String(x.id) !== String(saved.id))]);
-      refreshDashboard(true);
-      setModal(null);
-      setGrowthEvent(item.id);
-      setCelebrating(true);
-      celebrateSound();
-      clearTimeout(celebrateTimer.current);
-      celebrateTimer.current = setTimeout(() => setCelebrating(false), 2400);
-      notify(`บันทึกแล้ว +${item.minutes * 2} XP · ขึ้นอีก 1 ขั้น!`);
-    } catch (error) {
-      if (error.status === 401) {
-        clearOwnerToken();
-        setVerify({ type: "save", data });
-        return;
-      }
-      notify("บันทึกไม่สำเร็จ: " + error.message);
-    }
+    const editing=Boolean(data.id);
+    const item={...data,id:data.id||data.draftId||crypto.randomUUID(),date:data.date||new Date().toISOString(),minutes:Number(data.minutes),before:Number(data.before),after:Number(data.after),difficulty:Number(data.difficulty)};
+    setSaveError('');
+    try{
+      await (editing?updateActivity(item):createActivity(item));
+      setLearningVersion(value=>value+1);refreshDashboard(true);setModal(null);
+      if(!editing){setGrowthEvent(item.id);setCelebrating(true);celebrateSound();clearTimeout(celebrateTimer.current);celebrateTimer.current=setTimeout(()=>setCelebrating(false),2400)}
+      notify(editing?'แก้ไขบันทึกแล้ว':'บันทึกกิจกรรมแล้ว');return true;
+    }catch(error){setSaveError(error.message);return false}
   }
-  function save(data) {
-    if (!data.topic.trim()) return;
-    if (!hasOwnerToken()) {
-      setVerify({ type: "save", data });
-      return;
-    }
-    return saveNow(data);
-  }
-  async function removeNow(id) {
-    if (deletingIds.current.has(String(id))) return;
+  function save(data){if(!data.topic.trim())return Promise.resolve(false);return saveNow(data)}
+  async function removeNow(id){
+    if(deletingIds.current.has(String(id)))return false;
     deletingIds.current.add(String(id));
-    // เอาออกจากหน้าจอทันที (optimistic) พร้อมเก็บไว้เผื่อถอนกลับ
-    let removed = null;
-    setLogs((v) => {
-      removed = v.find((x) => String(x.id) === String(id)) || null;
-      return v.filter((x) => String(x.id) !== String(id));
-    });
-    notify("ลบแล้ว");
-    try {
-      await deleteActivity(id);
-    } catch (error) {
-      if (removed) setLogs((v) => [removed, ...v]);
-      if (error.status === 401) {
-        clearOwnerToken();
-        setVerify({ type: "delete", id });
-        return;
-      }
-      notify("ลบไม่สำเร็จ: " + error.message);
-    } finally {
-      deletingIds.current.delete(String(id));
-    }
+    try{await deleteActivity(id);setLearningVersion(value=>value+1);refreshDashboard(true);notify('ลบบันทึกแล้ว');return true}
+    catch(error){notify('ลบไม่สำเร็จ: '+error.message);return false}
+    finally{deletingIds.current.delete(String(id))}
   }
-  function remove(id) {
-    if (!hasOwnerToken()) {
-      setVerify({ type: "delete", id });
-      return;
-    }
-    return removeNow(id);
-  }
+  function remove(id){return removeNow(id)}
   async function confirmOwner(code) {
     await verifyOwner(code);
     const pending = verify;
@@ -441,8 +400,8 @@ function App() {
         </div>
         {[
           ["today", "/ui/nav-home.png", "วันนี้"],
-          ["history", "/ui/nav-history.png", "ประวัติ"],
-          ["progress", "/ui/nav-progress.png", "พัฒนาการ"],
+          ["history", "/ui/nav-history.png", "บันทึกการฝึก"],
+          ["progress", "/ui/nav-progress.png", "สถิติการฝึก"],
           ["goals", "/goals/goal/dream.png", "เป้าหมาย"],
           ["kanban", "/ui/pixel/board.svg", "บอร์ดงาน"],
           ["todos", "/todos/todo-board.png", "ภารกิจวันนี้"],
@@ -479,33 +438,7 @@ function App() {
         <PageLoading key={view} active={reading}/>
         <Suspense fallback={<PageLoading label="กำลังเปิดหน้า…"/>}>
         {view === "today" ? (
-          <Today
-            {...{
-              todayLogs,
-              growthCount: summary.total,
-              growthEvent,
-              minutes,
-              xp,
-              streak,
-              pos,
-              direction,
-              walking,
-              celebrating,
-              walk,
-              goSkill,
-              roomRef,
-              characterRef,
-              timer,
-              setTimer,
-              running,
-              setRunning,
-              phase,
-              setPhase,
-              sessions,
-              setModal,
-              openStage: () => setStage(true),
-            }}
-          />
+          <TodayPage skills={SKILLS} todayLogs={todayLogs} summary={summary} ready={dashboardReady} error={dashboardError} onRetry={()=>refreshDashboard(true)} onLog={openActivity} onEdit={editActivity} onView={setView} room={<PixelRoom {...{pos,direction,walking,celebrating,walk,goSkill,roomRef,characterRef}}/>} {...{timer,setTimer,running,setRunning,phase,setPhase,sessions}} openStage={()=>setStage(true)}/>
         ) : view === "kanban" ? (
           <KanbanBoard/>
         ) : view === "goals" ? (
@@ -521,15 +454,17 @@ function App() {
         ) : view === "summaries" ? (
           <SummaryLibrary onRequireOwner={(action)=>setVerify({type:"todos",action})} onSuccess={celebrateSmallWin} />
         ) : view === "history" ? (
-          <HistoryView remove={remove} onChanged={()=>refreshDashboard(true)} />
+          <ActivityHistory skills={SKILLS} onLog={openActivity} onEdit={editActivity} onRemove={remove} version={`${learningVersion}:${currentLearningDay}`}/>
         ) : (
-          <Progress summary={summary} xp={xp} />
+          <LearningStats skills={SKILLS} onLog={openActivity} version={`${learningVersion}:${currentLearningDay}`}/>
         )}
         </Suspense>
       </main>
       {modal && (
-        <LogModal
+        <ActivityForm
           initial={modal}
+          skills={SKILLS}
+          error={saveError}
           onClose={() => setModal(null)}
           onSave={save}
         />
@@ -560,42 +495,8 @@ function SkillArt({ skill }) {
   return <img className="skillArt" src={s.asset} alt="" />;
 }
 
-function Today({
-  todayLogs,
-  growthCount,
-  growthEvent,
-  minutes,
-  xp,
-  streak,
-  pos,
-  direction,
-  walking,
-  celebrating,
-  walk,
-  goSkill,
-  roomRef,
-  characterRef,
-  timer,
-  setTimer,
-  running,
-  setRunning,
-  phase,
-  setPhase,
-  sessions,
-  setModal,
-  openStage,
-}) {
-  const totals = Object.keys(SKILLS).reduce(
-    (o, k) => ({
-      ...o,
-      [k]: todayLogs
-        .filter((x) => x.skill === k)
-        .reduce((a, b) => a + Number(b.minutes), 0),
-    }),
-    {},
-  );
-  return (
-    <div className="dashboard pixelDashboard">
+function PixelRoom({pos,direction,walking,celebrating,walk,goSkill,roomRef,characterRef}) {
+ return <div className="dashboard pixelDashboard learningRoom">
       <section className="roomPanel">
         <div className="room" ref={roomRef} onClick={walk}>
           {Object.entries(SKILLS).map(([k, s]) => (
@@ -630,197 +531,8 @@ function Today({
           )}
         </div>
       </section>
-      <section className="sideCol">
-        <GrowthStaircase count={growthCount} event={growthEvent} />
-        <PomodoroCard
-          {...{ timer, setTimer, running, setRunning, phase, setPhase, sessions }}
-          tools={
-            <button
-              type="button"
-              className="stageOpen"
-              onClick={openStage}
-              title="ขยายเต็มจอ พร้อมวิดีโอโฟกัส"
-              aria-label="ขยายเต็มจอ พร้อมวิดีโอโฟกัส"
-            >
-              <svg viewBox="0 0 16 16" shapeRendering="crispEdges" aria-hidden="true">
-                <path
-                  fill="currentColor"
-                  d="M1 1h6v2H3v4H1zM9 1h6v6h-2V3H9zM1 9h2v4h4v2H1zM13 9h2v6H9v-2h4z"
-                />
-              </svg>
-            </button>
-          }
-        />
-        <div className="focusRow">
-          <div className="card focus">
-            <header className="focusHeading"><b>Focus time</b></header>
-            <div>
-              <span className="focusIcon">
-                <img src="/ui/focus.png" alt="" />
-              </span>
-              <div className="focusInfo">
-                <strong>
-                  {Math.floor(minutes / 60)}h {minutes % 60}m
-                </strong>
-                <small>เวลาฝึกวันนี้</small>
-              </div>
-            </div>
-          </div>
-          <section className="card streakCard">
-            <PixelIcon name="flame" />
-            <h2>{streak} day streak</h2>
-            <div className="streakDots">
-              {[0, 1, 2, 3, 4, 5, 6].map((x) => (
-                <i className={x < Math.min(streak, 7) ? "on" : ""} key={x} />
-              ))}
-            </div>
-            <strong>+{xp % 500} XP</strong>
-          </section>
-        </div>
-      </section>
-      <div className="growthSummary">
-        <section className="card weekly">
-          <h3>Weekly progress</h3>
-          {Object.entries(SKILLS).map(([k, s]) => (
-            <div className="weekRow" key={k}>
-              <span style={{ background: s.color }}>
-                <SkillArt skill={k} />
-              </span>
-              <b>{s.label}</b>
-              <div className="bar">
-                <i
-                  style={{
-                    background: s.color,
-                    width: `${Math.min(100, totals[k] / 1.2)}%`,
-                  }}
-                />
-              </div>
-              <strong>{Math.min(100, Math.round(totals[k] / 1.2))}%</strong>
-            </div>
-          ))}
-        </section>
-        <div className="card plan">
-          <div className="cardTitle">
-            <h2>Today's plan</h2>
-            <span>
-              {Object.keys(SKILLS).filter((k) => totals[k] > 0).length}/4
-            </span>
-          </div>
-          {Object.entries(SKILLS).map(([k, s]) => {
-            // หนึ่งแถวคือหนึ่งทักษะ ไม่ใช่หนึ่งกิจกรรม -- วันหนึ่งฝึกทักษะเดิม
-            // ได้หลายรอบ จึงรวมนาทีของทุกกิจกรรมในทักษะนั้นมาแสดง
-            const done = todayLogs.filter((x) => x.skill === k);
-            const minutes = totals[k];
-            return (
-              <div className={`task ${done.length ? "" : "muted"}`} key={k}>
-                <span style={{ background: s.color }}>
-                  <SkillArt skill={k} />
-                </span>
-                <div>
-                  <b>{s.label}</b>
-                  <small>
-                    {done.length
-                      ? `${done.length} กิจกรรม · ${minutes}m`
-                      : "ยังไม่ได้ฝึก"}
-                  </small>
-                </div>
-                {done.length ? (
-                  <PixelIcon name="check" className="done" />
-                ) : (
-                  <i className="checkBox" />
-                )}
-              </div>
-            );
-          })}
-          <button className="primary" onClick={() => setModal({ ...EMPTY })}>
-            <PixelIcon name="plus" /> Add activity
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+ </div>;
 }
-// Pixel bounds in the transparent atlas; preserve one scale across all six poses.
-const GROWTH_FRAMES = [
-  [89, 150, 357, 611], [497, 247, 770, 611], [869, 89, 1188, 609],
-  [70, 819, 394, 1178], [471, 704, 785, 1172], [922, 702, 1219, 1172],
-];
-function GrowthStaircase({ count, event }) {
-  const [jumping, setJumping] = useState(false);
-  const [frame, setFrame] = useState(0);
-  const lastEvent = useRef(event);
-  useEffect(() => {
-    if (event === lastEvent.current) return;
-    lastEvent.current = event;
-    if (!event) return;
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    setJumping(true);
-    setFrame(reducedMotion ? 5 : 1);
-    const sequence = reducedMotion ? [] : [
-      [180, 2], [700, 3], [880, 4], [1150, 5], [1420, 4], [1690, 5],
-    ];
-    const timers = sequence.map(([delay, pose]) => setTimeout(() => setFrame(pose), delay));
-    timers.push(setTimeout(() => { setJumping(false); setFrame(0); }, 2200));
-    return () => timers.forEach(clearTimeout);
-  }, [event]);
-  const [sx, sy, ex, ey] = GROWTH_FRAMES[frame];
-  const scale = .15;
-  // Keep the current step in view even after hundreds of activities.
-  const start = Math.max(0, count - 3);
-  const slot = count - start;
-  return (
-    <section className="card growthCard" aria-labelledby="growth-title">
-      <header className="growthHeader">
-        <h3 id="growth-title">ขั้นการพัฒนา</h3>
-        <strong>ขั้นที่ {count}</strong>
-      </header>
-      <p className="growthHint">เรียนจบและบันทึก 1 กิจกรรม = 1 ขั้น</p>
-      <div className="growthStage" aria-hidden="true">
-        <div className="growthScenery">
-          <span className="growthSun" />
-          <svg className="growthMountains" viewBox="0 0 400 180" preserveAspectRatio="none" shapeRendering="crispEdges">
-            <path fill="#b8cfba" d="M0 110h25V95h25V80h25V60h25V40h25v20h25v25h25v20h25V90h25V70h25V50h25v20h25v25h25v20h25v-15h25v-20h25v100H0z" />
-            <path fill="#8db9a8" opacity=".65" d="M0 145h30v-20h30v-15h30v15h30v20h30v-20h30v-20h30v-15h30v20h30v20h30v15h30v-20h30v-15h40v70H0z" />
-          </svg>
-          <span className="growthCloud cloudOne" />
-          <span className="growthCloud cloudTwo" />
-          {[0,1,2,3].map(i=><span key={i} className={`growthWind wind${i}`} />)}
-        </div>
-        {Array.from({ length: 6 }, (_, i) => (
-          <div
-            key={i}
-            className={`growthStep ${start + i <= count ? "reached" : ""} ${i === slot ? "current" : ""}`}
-            style={{ left: `${i * 100 / 6}%`, height: `${30 + i * 18}px` }}
-          >
-            <img className="growthStepArt" src="/growth/grass-stone-step.webp" alt="" />
-            <span>{start + i}</span>
-          </div>
-        ))}
-        <div
-          key={event || "rest"}
-          className={`growthCharacter ${jumping ? "jumping" : ""}`}
-          style={{
-            "--from-left": `${(Math.max(0, slot - 1) + .5) * 100 / 6}%`,
-            "--to-left": `${(slot + .5) * 100 / 6}%`,
-            "--from-bottom": `${25 + Math.max(0, slot - 1) * 18}px`,
-            "--to-bottom": `${25 + slot * 18}px`,
-          }}
-        >
-          <span className="growthCheer">เย้! +1 ขั้น</span>
-          <span className="growthPose" style={{
-            width: `${(ex - sx) * scale}px`, height: `${(ey - sy) * scale}px`,
-            backgroundSize: `${1254 * scale}px ${1254 * scale}px`,
-            backgroundPosition: `${-sx * scale}px ${-sy * scale}px`,
-          }} />
-        </div>
-      </div>
-      <p className="growthStatus" role="status">
-        {jumping ? "เก่งมาก! ก้าวไปอีกขั้นแล้ว" : count ? `เรียนรู้แล้ว ${count} กิจกรรม · ไปต่อทีละขั้น` : "ก้าวแรกเริ่มจากกิจกรรมแรกของเรา"}
-      </p>
-    </section>
-  );
-}
-
 // The original atlas contains three poses per direction, including real alternating steps.
 function WalkingSprite({ direction, walking }) {
   const [phase, setPhase] = useState(0);
@@ -913,377 +625,6 @@ function VerifyModal({ onClose, onConfirm }) {
   );
 }
 
-function LogModal({ initial, onClose, onSave }) {
-  const [f, setF] = useState(initial);
-  const [saving, setSaving] = useState(false);
-  const upd = (k, v) => setF((x) => ({ ...x, [k]: v }));
-  const submit = async (e) => {
-    e.preventDefault();
-    if (saving) return;
-    setSaving(true);
-    try {
-      await onSave(f);
-    } finally {
-      setSaving(false);
-    }
-  };
-  return (
-    <div
-      className="backdrop"
-      onMouseDown={(e) => e.target === e.currentTarget && !saving && onClose()}
-    >
-      <form className="modal" onSubmit={submit}>
-        <button type="button" className="close" onClick={onClose}>
-          <PixelIcon name="close" />
-        </button>
-        <p className="eyebrow">ACTIVITY LOG</p>
-        <h2>วันนี้ฝึกอะไรไปบ้าง?</h2>
-        <label>
-          ทักษะ
-          <div className="skillPick">
-            {Object.entries(SKILLS).map(([k, s]) => (
-              <button
-                type="button"
-                className={f.skill === k ? "selected" : ""}
-                style={{ "--c": s.color }}
-                onClick={() => upd("skill", k)}
-                key={k}
-              >
-                <SkillArt skill={k} />
-                {s.label}
-              </button>
-            ))}
-          </div>
-        </label>
-        <div className="fields">
-          <label className="wide">
-            หัวข้อที่ฝึก
-            <input
-              autoFocus
-              value={f.topic}
-              onChange={(e) => upd("topic", e.target.value)}
-              placeholder="เช่น Dictionary และการนับความถี่"
-              required
-            />
-          </label>
-          <label>
-            เวลาที่ใช้ (นาที)
-            <input
-              type="number"
-              min="1"
-              value={f.minutes}
-              onChange={(e) => upd("minutes", e.target.value)}
-            />
-          </label>
-          <label>
-            ความยาก
-            <select
-              value={f.difficulty}
-              onChange={(e) => upd("difficulty", e.target.value)}
-            >
-              {[1, 2, 3, 4, 5].map((x) => (
-                <option key={x} value={x}>
-                  {x} / 5
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            ก่อนฝึก <b>{f.before}/5</b>
-            <input
-              type="range"
-              min="1"
-              max="5"
-              value={f.before}
-              style={{ "--range-fill": `${(Number(f.before) - 1) * 25}%` }}
-              onChange={(e) => upd("before", e.target.value)}
-            />
-          </label>
-          <label>
-            หลังฝึก <b>{f.after}/5</b>
-            <input
-              type="range"
-              min="1"
-              max="5"
-              value={f.after}
-              style={{ "--range-fill": `${(Number(f.after) - 1) * 25}%` }}
-              onChange={(e) => upd("after", e.target.value)}
-            />
-          </label>
-          <label className="wide">
-            ได้เรียนรู้อะไร
-            <textarea
-              value={f.learned}
-              onChange={(e) => upd("learned", e.target.value)}
-              placeholder="สรุปสั้น ๆ ด้วยคำของเราเอง"
-            />
-          </label>
-          <label>
-            ยังติดตรงไหน
-            <textarea
-              value={f.problem}
-              onChange={(e) => upd("problem", e.target.value)}
-              placeholder="จุดที่ยังไม่เข้าใจ"
-            />
-          </label>
-          <label>
-            ครั้งหน้าจะทำอะไรต่อ
-            <textarea
-              value={f.next}
-              onChange={(e) => upd("next", e.target.value)}
-              placeholder="กำหนดก้าวถัดไป"
-            />
-          </label>
-        </div>
-        <div className="actions">
-          <button type="button" onClick={onClose} disabled={saving}>
-            ยกเลิก
-          </button>
-          <button className="primary" type="submit" disabled={saving}>
-            <PixelIcon name="check" />
-            {saving ? "กำลังบันทึก..." : "บันทึกกิจกรรม"}
-          </button>
-        </div>
-      </form>
-    </div>
-  );
-}
-
-function HistoryView({ remove,onChanged }) {
-  const PAGE_SIZE = 40;
-  const [filter, setFilter] = useState("all");
-  const [query, setQuery] = useState("");
-  const [page, setPage] = useState(1);
-  const [logs,setLogs]=useState([]);
-  const [meta,setMeta]=useState({page:1,pages:1,total:0});
-  const [loading,setLoading]=useState(true);
-  const historyTopRef = useRef(null);
-  async function load(nextPage=page){setLoading(true);try{const result=await loadActivities({page:nextPage,pageSize:PAGE_SIZE,skill:filter,query:query.trim()});setLogs(result.items||[]);setMeta(result)}catch(error){}finally{setLoading(false)}}
-  useEffect(()=>{const timer=setTimeout(()=>load(page),query?300:0);return()=>clearTimeout(timer)},[page,filter,query]);
-  const grouped = logs.reduce((o, x) => {
-    const k = dateKey(x.date);
-    (o[k] ??= []).push(x);
-    return o;
-  }, {});
-  const dayGroups = Object.entries(grouped);
-  const pageCount = meta.pages||1;
-  const safePage = meta.page||page;
-  useEffect(() => setPage(1), [filter, query]);
-  function goPage(nextPage) {
-    setPage(nextPage);
-    requestAnimationFrame(() =>
-      historyTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
-    );
-  }
-  return (
-    <section className="page historyPage" ref={historyTopRef}>
-      <p className="eyebrow">LEARNING JOURNAL</p>
-      <h1>ทำอะไรไปบ้าง</h1>
-      <div className="historyTools">
-        <label className="searchBox">
-          <PixelIcon name="search" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="ค้นหาหัวข้อ สิ่งที่เรียนรู้ หรือปัญหา..."
-            aria-label="ค้นหาประวัติการฝึก"
-          />
-          {query && (
-            <button onClick={() => setQuery("")} aria-label="ล้างคำค้นหา">
-              <PixelIcon name="close" />
-            </button>
-          )}
-        </label>
-        <div className="filter">
-          <button
-            className={filter === "all" ? "on" : ""}
-            onClick={() => setFilter("all")}
-          >
-            ทั้งหมด
-          </button>
-          {Object.entries(SKILLS).map(([k, s]) => (
-            <button
-              className={filter === k ? "on" : ""}
-              onClick={() => setFilter(k)}
-              key={k}
-            >
-              <SkillArt skill={k} />
-              {s.label}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="timeline">
-        {logs.length ? (
-          dayGroups.map(([day, items]) => (
-            <section className="dayGroup" key={day}>
-              <header>
-                <div>
-                  <small>ACTIVITY GROUP</small>
-                  <h2>{day === dateKey(new Date()) ? "วันนี้" : dateLabel(day)}</h2>
-                </div>
-                <span>
-                  {items.length} กิจกรรม ·{" "}
-                  {items.reduce((n, x) => n + Number(x.minutes), 0)} นาที
-                </span>
-              </header>
-              <div className="dayLogs">
-                {items.map((x) => {
-                  const s = SKILLS[x.skill];
-                  return (
-                    <article key={x.id} style={{ "--c": s.color }}>
-                      <div className="logIcon">
-                        <SkillArt skill={x.skill} />
-                      </div>
-                      <div className="logMain">
-                        <small>
-                          {new Date(x.date).toLocaleTimeString("th-TH", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}{" "}
-                          · {s.label} · {x.minutes} นาที
-                        </small>
-                        <h3>{x.topic}</h3>
-                        {x.learned && (
-                          <p>
-                            <b>ได้เรียนรู้:</b> {x.learned}
-                          </p>
-                        )}
-                        {x.problem && (
-                          <p>
-                            <b>ยังติด:</b> {x.problem}
-                          </p>
-                        )}
-                        {x.next && (
-                          <p>
-                            <b>ครั้งต่อไป:</b> {x.next}
-                          </p>
-                        )}
-                      </div>
-                      <div className="improve">
-                        <PixelIcon name="trend" />
-                        <b>
-                          {x.after - x.before >= 0 ? "+" : ""}
-                          {x.after - x.before}
-                        </b>
-                        <small>พัฒนาการ</small>
-                      </div>
-                      <button
-                        className="delete"
-                        onClick={async()=>{setLogs(items=>items.filter(item=>item.id!==x.id));await remove(x.id);await load(safePage);onChanged?.();}}
-                        aria-label={`ลบ ${x.topic}`}
-                      >
-                        <PixelIcon name="trash" />
-                      </button>
-                    </article>
-                  );
-                })}
-              </div>
-            </section>
-          ))
-        ) : (
-          <div className="empty big">
-            <PixelIcon name="search" />
-            <b>{loading?'กำลังโหลดจาก Google Sheets…':'ไม่พบรายการที่ค้นหา'}</b>
-            <small>ลองเปลี่ยนคำค้นหาหรือตัวกรองทักษะ</small>
-          </div>
-        )}
-      </div>
-      {pageCount > 1 && (
-        <nav className="historyPagination" aria-label="หน้าประวัติกิจกรรม">
-          <button type="button" disabled={safePage === 1} onClick={() => goPage(safePage - 1)}>
-            ‹ ก่อนหน้า
-          </button>
-          <span>
-            หน้า <b>{safePage}</b> / {pageCount}
-            <small>แสดงครั้งละ {PAGE_SIZE} กิจกรรม · พบทั้งหมด {meta.total||0}</small>
-          </span>
-          <button type="button" disabled={safePage === pageCount} onClick={() => goPage(safePage + 1)}>
-            ถัดไป ›
-          </button>
-        </nav>
-      )}
-    </section>
-  );
-}
-
-function Progress({ summary, xp }) {
-  const totals = summary.totals||{};
-  const max = Math.max(1, ...Object.values(totals));
-  const gain = Number(summary.gain||0).toFixed(1);
-  return (
-    <section className="page progressPage">
-      <p className="eyebrow">YOUR GROWTH</p>
-      <h1>เราเก่งขึ้นแค่ไหนแล้ว</h1>
-      <div className="summary">
-        <div>
-          <PixelIcon name="clock" />
-          <span>
-            <b>{Object.values(totals).reduce((a, b) => a + b, 0)}</b>นาทีทั้งหมด
-          </span>
-        </div>
-        <div>
-          <PixelIcon name="trend" />
-          <span>
-            <b>+{gain}</b>เฉลี่ยต่อครั้ง
-          </span>
-        </div>
-        <div>
-          <PixelIcon name="flame" />
-          <span>
-            <b>{summary.streak||0}</b>วันติดต่อกัน
-          </span>
-        </div>
-        <div>
-          <PixelIcon name="sprout" />
-          <span>
-            <b>{summary.activeDays||0}</b>วันที่ลงมือทั้งหมด
-          </span>
-        </div>
-        <div>
-          <PixelIcon name="bolt" />
-          <span>
-            <b>{xp}</b>XP สะสม
-          </span>
-        </div>
-      </div>
-      <div className="card progressCard">
-        <h2>เวลาฝึกแยกตามทักษะ</h2>
-        {Object.entries(SKILLS).map(([k, s]) => (
-          <div className="progressRow" key={k}>
-            <span style={{ background: s.color }}>
-              <SkillArt skill={k} />
-            </span>
-            <b>{s.label}</b>
-            <div className="bar">
-              <i
-                style={{
-                  background: s.color,
-                  width: `${(totals[k] / max) * 100}%`,
-                }}
-              />
-            </div>
-            <strong>{totals[k]} นาที</strong>
-          </div>
-        ))}
-      </div>
-      <div className="insight">
-        <PixelIcon name="brain" />
-        <div>
-          <b>
-            {summary.total
-              ? "ทุกครั้งที่บันทึก เราจะเห็นหลักฐานว่าตัวเองกำลังไปข้างหน้า"
-              : "เริ่มบันทึกกิจกรรมแรกของเรา"}
-          </b>
-          <p>
-            ไม่ต้องเก่งขึ้นแบบก้าวกระโดด แค่หลังฝึกเข้าใจมากกว่าก่อนฝึก 1
-            ระดับก็ถือว่าชนะแล้ว
-          </p>
-        </div>
-      </div>
-    </section>
-  );
-}
 createRoot(document.getElementById("root")).render(<AccessGate><App /></AccessGate>);
 
 // Installed-app support: registering the service worker is what lets iOS keep

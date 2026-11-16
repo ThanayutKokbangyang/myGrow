@@ -49,3 +49,13 @@ On desktop, drag cards onto a card to insert before it, or onto a column to appe
 The board keeps a serialized browser save queue: moves update immediately while earlier writes are still pending, then pending edits are rebased on acknowledged revisions. A failure restores the last confirmed snapshot, and another tab's unrelated changes cause a conflict rather than being silently overwritten. The queue survives switching modes, and the lock action discards private in-memory state. A freshly saved board is reused for up to one minute; โหลดใหม่ explicitly refreshes it.
 
 Use เพิ่มการ์ด at the bottom of a column to type a title inline, then Enter to add it (Shift+Enter inserts a line break). Open a card for full details; Ctrl/Command+Enter saves and Escape closes. Edge scrolling assists desktop dragging, arrow buttons scroll the board, and mobile retains its per-card column selector. Motion respects reduced-motion preferences. These interaction changes require no further Apps Script changes beyond the Kanban version above.
+
+## Learning pages: Today, journal and statistics
+
+Deploy the latest complete `Code.gs` to the same Apps Script deployment before deploying the web changes. The existing Activities columns and data remain in place. No new sheet or environment variable is needed for learning reports.
+
+Today now prioritizes starting focus and recording completed activities; the original interactive Pixel room opens on demand. The journal shows compact, expandable entries, supports skill/text/date filters, and edits existing records without changing their ID or original timestamp unless the user changes the activity day. Edits compare `updated_at` to reject stale writes. Delete confirmation appears inline; failed saves/deletes do not claim success. New drafts keep a stable ID across retries.
+
+The statistics endpoint returns complete 7- or 30-day windows and the immediately preceding equal-length period, plus one aggregate per day (including zero days). All learning-day boundaries use 05:00 Asia/Bangkok in both browser and Apps Script. Writes invalidate dashboard and report caches. History is ordered by activity timestamp before pagination so backdated records appear in the right place. It reads the Activities range once before filtering/sorting; responses remain bounded to the requested page.
+
+Before/after understanding and difficulty are optional: 0 means not assessed, while actual ratings use 1–5. Before and after must either both be rated or both be left unrated. The UI labels these as self-assessment, and the statistics page reports recorded time/consistency rather than treating ratings as proof of skill. It avoids fabricating a percentage increase when the previous period contains no recorded time.

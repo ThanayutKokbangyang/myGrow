@@ -21,6 +21,9 @@ test('API reads normalize keys, refresh explicitly, and invalidate after writes'
   const before=await api.loadDashboard();
   await api.createActivity({topic:'test'});
   assert.notEqual((await api.loadDashboard()).version,before.version);
+  const statsBefore=await api.loadLearningStats(7);
+  await api.updateActivity({id:'test',topic:'edited'});
+  assert.notEqual((await api.loadLearningStats(7)).version,statsBefore.version);
   let rejectRead;
   globalThis.fetch=()=>new Promise((_,reject)=>{rejectRead=reject});
   const failed=api.loadDashboard(true);
