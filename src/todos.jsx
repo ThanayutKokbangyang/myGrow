@@ -1,8 +1,8 @@
 import React,{useEffect,useMemo,useState} from 'react';
 import './todos.css';
 import {applyTodos,getCachedTodos,loadTodos} from './api';
-import todoMascot from './assets/tae-checklist-desk-web.png';
-import todoMascotThumbsUp from './assets/tae-checklist-thumbs-up.png';
+import todoMascot from './assets/tae-checklist-desk-web.webp';
+import todoMascotThumbsUp from './assets/tae-checklist-thumbs-up.webp';
 import {dayKey,parseDay} from './day';
 
 const localDay=()=>dayKey();

@@ -27,3 +27,9 @@ Validation: `npm run build` and `node --test tests/sheet-wins.test.mjs tests/win
 - Vocabulary returns only the due review queue or one 50-word library page. Review/edit/delete locate one ID with `TextFinder` and read only that row. Aggregate vocabulary statistics are returned separately.
 
 After changing this file, update the existing Apps Script deployment with a new version before deploying the web app. The optimized web client expects these paginated responses.
+
+## Web performance update (November 2026)
+
+The Flashcards web mode and its proxy endpoints have been removed. Existing Vocabulary rows and files are retained; legacy Apps Script helpers remain for data compatibility. No Apps Script redeployment is needed for this web-only update.
+
+Feature screens load on demand. Browser API reads are deduplicated and cached for at most 60 seconds in memory (not persistent storage), with bounded entries. Successful mutations invalidate their resource cache; activity mutations also invalidate dashboard data. Explicit reloads bypass freshness. PNG illustrations with exact pixel-equivalent WebP replacements are served as WebP.

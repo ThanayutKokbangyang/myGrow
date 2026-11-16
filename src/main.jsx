@@ -1,16 +1,15 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
-import Flashcards from "./flashcards";
 import {contains,roomGeometry} from "./room-geometry";
 import {dayKey, formatDayTH} from "./day";
-import {MusicPlayer, SmallWins, unlockSound, woodStep, winSound, smallWinSound} from "./comfort";
-import {FocusStage} from "./focus-stage";
-import {Goals} from "./goals";
-import {Todos} from "./todos";
-import {Reflections} from "./reflections";
-import {Calendar} from "./calendar";
-import {SummaryLibrary} from "./summaries";
+import {MusicPlayer, unlockSound, woodStep, winSound, smallWinSound} from "./comfort";
+const FocusStage = lazy(() => import("./focus-stage").then(module => ({default: module.FocusStage})));
+const Goals = lazy(() => import("./goals").then(module => ({default: module.Goals})));
+const Todos = lazy(() => import("./todos").then(module => ({default: module.Todos})));
+const Reflections = lazy(() => import("./reflections").then(module => ({default: module.Reflections})));
+const Calendar = lazy(() => import("./calendar").then(module => ({default: module.Calendar})));
+const SummaryLibrary = lazy(() => import("./summaries").then(module => ({default: module.SummaryLibrary})));
 import {PixelIcon, PomodoroCard, FOCUS_SECONDS, BREAK_SECONDS} from "./pomodoro-card";
 import {
   clearOwnerToken,
@@ -21,6 +20,8 @@ import {
   loadDashboard,
   verifyOwner,
 } from "./api";
+
+const SmallWins = lazy(() => import("./wins").then(module => ({default: module.SmallWins})));
 
 const SKILLS = {
   english: {
@@ -442,7 +443,6 @@ function App() {
           ["calendar", "/calendar/icons/calendar-month.png", "ปฏิทิน"],
           ["wins", "/ui/pixel/trophy.svg", "ความสำเร็จเล็ก ๆ"],
           ["summaries", "/summaries/summary-icon.png", "สรุปของเรา"],
-          ["flashcards", "/ui/pixel/book.png", "Flashcards"],
         ].map(([k, asset, l]) => (
           <button
             className={view === k ? "active" : ""}
@@ -458,7 +458,7 @@ function App() {
         <button className="soundToggle" title={soundEnabled ? "ปิดเสียงเกม" : "เปิดเสียงเกม"} aria-label={soundEnabled ? "ปิดเสียงเกม" : "เปิดเสียงเกม"} aria-pressed={soundEnabled} onClick={() => {const next=!soundEnabled;setSoundEnabled(next);try{localStorage.setItem("grow-sound",next?"on":"off")}catch{}}}>{soundEnabled?"♪":"♫"}<span className="navLabel">{soundEnabled?"เสียงเปิด":"เสียงปิด"}</span></button>
         <div className="asideBottom">
           <div className="avatarMini">
-            <img src="/tae-avatar.png" alt="" />
+            <img src="/tae-avatar.webp" alt="" />
           </div>
           <div>
             <b>Tae</b>
@@ -468,6 +468,7 @@ function App() {
         </div>
       </aside>
       <main>
+        <Suspense fallback={<p className="page" role="status">กำลังเปิดหน้า…</p>}>
         {view === "today" ? (
           <Today
             {...{
@@ -496,8 +497,6 @@ function App() {
               openStage: () => setStage(true),
             }}
           />
-        ) : view === "flashcards" ? (
-          <Flashcards onRequireOwner={()=>setVerify({type:"flashcards"})} onSuccess={celebrateSound} ownerOpen={Boolean(verify)} />
         ) : view === "goals" ? (
           <Goals onRequireOwner={()=>setVerify({type:"goals"})} onSuccess={celebrateSmallWin} />
         ) : view === "todos" ? (
@@ -515,6 +514,7 @@ function App() {
         ) : (
           <Progress summary={summary} xp={xp} />
         )}
+        </Suspense>
       </main>
       {modal && (
         <LogModal
@@ -533,10 +533,12 @@ function App() {
       )}
       <MusicPlayer />
       {stage && (
+        <Suspense fallback={<p role="status">กำลังเปิดห้องโฟกัส…</p>}>
         <FocusStage
           onClose={() => setStage(false)}
           {...{ timer, setTimer, running, setRunning, phase, setPhase, sessions }}
         />
+        </Suspense>
       )}
     </div>
   );
@@ -779,7 +781,7 @@ function GrowthStaircase({ count, event }) {
             className={`growthStep ${start + i <= count ? "reached" : ""} ${i === slot ? "current" : ""}`}
             style={{ left: `${i * 100 / 6}%`, height: `${30 + i * 18}px` }}
           >
-            <img className="growthStepArt" src="/growth/grass-stone-step.png" alt="" />
+            <img className="growthStepArt" src="/growth/grass-stone-step.webp" alt="" />
             <span>{start + i}</span>
           </div>
         ))}

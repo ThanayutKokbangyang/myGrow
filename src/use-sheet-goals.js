@@ -12,7 +12,7 @@ const writeCache=items=>{try{localStorage.setItem(CACHE,JSON.stringify(items))}c
 function fetchGoals(force){
  if(store.inflight)return store.inflight;                                     // one request even if two callers ask
  if(!force&&store.items&&Date.now()-store.at<FRESH_MS)return Promise.resolve(store.items);
- store.inflight=loadGoals()
+ store.inflight=loadGoals({refresh:force?1:undefined})
   .then(data=>{const items=normalizeItems(data);store.items=items;store.at=Date.now();return items})
   .finally(()=>{store.inflight=null});
  return store.inflight;

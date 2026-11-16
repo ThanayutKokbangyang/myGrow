@@ -13,7 +13,7 @@ function fetchCalendar(force,options){
  const key=`${options.start||''}:${options.end||''}`;
  if(store.inflight&&store.inflightKey===key)return store.inflight;
  if(!force&&store.items&&store.key===key&&Date.now()-store.at<FRESH_MS)return Promise.resolve(store.items);
- store.inflightKey=key;store.inflight=loadCalendar({...options,pageSize:500})
+ store.inflightKey=key;store.inflight=loadCalendar({...options,pageSize:500,refresh:force?1:undefined})
   .then(result=>{const items=normalizeEvents(result.items||[]);store.items=items;store.key=key;store.at=Date.now();return items})
   .finally(()=>{if(store.inflightKey===key){store.inflight=null;store.inflightKey=''}});
  return store.inflight;

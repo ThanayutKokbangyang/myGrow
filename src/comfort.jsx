@@ -129,4 +129,3 @@ export function MusicPlayer(){
     </button>
   </div>
 }
-export {SmallWins} from './wins';

@@ -12,6 +12,7 @@ const mime = {
   js: "text/javascript; charset=utf-8",
   css: "text/css; charset=utf-8",
   png: "image/png",
+  webp: "image/webp",
   jpg: "image/jpeg",
   jpeg: "image/jpeg",
   svg: "image/svg+xml",
@@ -115,15 +116,6 @@ async function handleApi(request, env, url) {
     if (!same(String(body.code || ""), String(env.TAE_ACCESS_CODE)))
       return json({ error: "รหัสยืนยันไม่ถูกต้อง" }, 401);
     return json({ ok: true, token: await issueToken(env.SESSION_SECRET) });
-  }
-  if (url.pathname === '/api/flashcards' && ['GET','POST'].includes(request.method)) {
-    if(request.method==='POST' && !(await validToken(request, env)))return json({error:'กรุณายืนยันว่าเป็นเท่ก่อนบันทึก'},401);
-    const body=request.method==='POST'?await request.json().catch(()=>null):null;
-    const action=request.method==='GET'?'list':body?.action;
-    if(!['list','upsert','delete','review','import','uploadImage'].includes(action))return json({error:'ไม่พบการทำงานนี้'},400);
-    if(request.method==='POST'&&action==='list')return json({error:'ใช้ GET เพื่ออ่านคำศัพท์'},400);
-    try{return json(await sheetRequest(env, {action:'cards_'+action,card:body?.card,cards:body?.cards,id:body?.id,remembered:body?.remembered,reviewId:body?.reviewId,image:body?.image,mode:url.searchParams.get('mode'),page:url.searchParams.get('page'),pageSize:url.searchParams.get('pageSize'),query:url.searchParams.get('query'),tag:url.searchParams.get('tag'),day:url.searchParams.get('day')}));}
-    catch(error){return json({error:error.message==='ACTION_INVALID'?'กรุณาอัปเดต Apps Script ให้รองรับ Vocabulary ก่อน':error.message},503);}
   }
   if (url.pathname === '/api/calendar' && ['GET','POST'].includes(request.method)) {
     if (request.method === 'POST' && !(await validToken(request, env))) return json({error:'กรุณายืนยันว่าเป็นเท่ก่อนบันทึก'},401);
