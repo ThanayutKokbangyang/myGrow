@@ -884,9 +884,18 @@ function routines_(body){
   try{
     const book=SpreadsheetApp.openById(spreadsheetId_()),master=routineSheet_(book,'Routines',ROUTINE_HEADERS),days=routineSheet_(book,'RoutineDays',ROUTINE_DAY_HEADERS);
     if(body.action==='routines_list')return routineResponse_(master,days,body);
-    if(['routines_upsert','routines_archive','routines_check'].indexOf(body.action)<0)throw new Error('ACTION_INVALID');
+    if(['routines_upsert','routines_archive','routines_check','routines_stamp'].indexOf(body.action)<0)throw new Error('ACTION_INVALID');
     if(!Number.isSafeInteger(body.revision)||body.revision<0)throw new Error('ข้อมูลเวอร์ชันไม่ถูกต้อง');
     const templates=routineTemplates_(master),now=new Date().toISOString();
+    if(body.action==='routines_stamp'){
+      const date=routineDate_(body.date);if(date!==routineToday_())throw new Error('ROUTINE_DAY_CHANGED');
+      const day=routineDayRow_(days,date,templates);
+      if(!day.row||!day.items.length||!day.items.every(item=>item.done))throw new Error('ROUTINE_INCOMPLETE');
+      if(day.stampedAt)return routineResponse_(master,days,body);
+      if(day.revision!==body.revision)throw new Error('ROUTINE_CONFLICT');
+      routineWriteRow_(days,day.row,[date,JSON.stringify(day.items),now,day.revision+1,now,day.items.length,day.items.length]);
+      return routineResponse_(master,days,body);
+    }
     if(body.action==='routines_check'){
       const date=routineDate_(body.date);if(date!==routineToday_())throw new Error('ROUTINE_DAY_CHANGED');
       const day=routineDayRow_(days,date,templates),changes=body.changes;
@@ -899,7 +908,7 @@ function routines_(body){
       const updates=new Map(changes.map(change=>[change.id,change.done]));
       day.items=day.items.map(item=>({...item,done:updates.has(item.id)?updates.get(item.id):item.done}));
       const completed=day.items.filter(item=>item.done).length,full=day.items.length>0&&completed===day.items.length;
-      const stampedAt=full?(day.stampedAt||now):'';
+      const stampedAt=full?day.stampedAt:'';
       routineWriteRow_(days,day.row||days.getLastRow()+1,[date,JSON.stringify(day.items),stampedAt,day.revision+1,now,day.items.length,completed]);
       return routineResponse_(master,days,body);
     }

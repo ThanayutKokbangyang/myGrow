@@ -15,13 +15,14 @@ function fixture(){
 }
 const add=(id,title=id)=>({action:'routines_upsert',item:{id,title,icon:'book'},revision:0});
 const checks=(changes,revision=0,date='2026-11-16')=>({action:'routines_check',changes,revision,date,month:date.slice(0,7)});
-test('a date receives a stamp only when all non-empty routine tasks are confirmed',()=>{
+const stamp=(revision,date='2026-11-16')=>({action:'routines_stamp',revision,date,month:date.slice(0,7)});
+test('a date receives a stamp only after explicit placement on a fully completed day',()=>{
  const f=fixture();let result=f.call({action:'routines_list'});assert.equal(result.day.items.length,0);assert.equal(result.day.stampedAt,'');
- f.call(add('read'));f.call(add('code'));
+ f.call(add('read'));f.call(add('code'));assert.throws(()=>f.call(stamp(0)),/ROUTINE_INCOMPLETE/);
  result=f.call(checks([{id:'read',done:true}]));assert.equal(result.day.revision,1);assert.equal(result.day.stampedAt,'');assert.equal(result.todayStarted,true);
- result=f.call(checks([{id:'code',done:true}],1));assert(result.day.stampedAt);assert.equal(result.calendar[0].completed,2);assert(routineComplete(result.day));
- const duplicate=f.call(checks([{id:'code',done:true}],0));assert.equal(duplicate.day.revision,2);assert.equal(duplicate.day.stampedAt,result.day.stampedAt);
- result=f.call(checks([{id:'read',done:false}],2));assert.equal(result.day.stampedAt,'');assert.equal(result.calendar[0].stampedAt,'');
+ result=f.call(checks([{id:'code',done:true}],1));assert.equal(result.day.stampedAt,'');assert.throws(()=>f.call(stamp(1)),/ROUTINE_CONFLICT/);result=f.call(stamp(2));assert(result.day.stampedAt);assert.equal(result.calendar[0].completed,2);assert(routineComplete(result.day));
+ const duplicate=f.call(checks([{id:'code',done:true}],0));assert.equal(duplicate.day.revision,3);assert.equal(duplicate.day.stampedAt,result.day.stampedAt);
+ result=f.call(checks([{id:'read',done:false}],3));assert.equal(result.day.stampedAt,'');assert.equal(result.calendar[0].stampedAt,'');
 });
 test('template changes never erase historical stamps or change a started day’s commitment',()=>{
  const f=fixture();f.call(add('read','Read original'));f.call(add('code','Code original'));
@@ -29,9 +30,9 @@ test('template changes never erase historical stamps or change a started day’s
  f.call({action:'routines_upsert',item:{id:'read',title:'Read renamed',icon:'brain'},revision:1});
  f.call({action:'routines_archive',id:'code',revision:1});
  let result=f.call(add('walk','Walk newly added'));assert.deepEqual(result.day.items.map(item=>item.title),['Read original','Code original']);
- result=f.call(checks([{id:'code',done:true}],1));const stamp=result.day.stampedAt;assert(stamp);
+ result=f.call(checks([{id:'code',done:true}],1));result=f.call(stamp(2));const savedStamp=result.day.stampedAt;assert(savedStamp);
  f.advance('2026-11-17T06:00:00Z');result=f.call({action:'routines_list'});assert.deepEqual(result.day.items.map(item=>item.title),['Read renamed','Walk newly added']);assert.equal(result.day.items.some(item=>item.done),false);
- result=f.call({action:'routines_list',date:'2026-11-16',month:'2026-11'});assert.equal(result.day.stampedAt,stamp);assert.deepEqual(result.day.items.map(item=>item.title),['Read original','Code original']);
+ result=f.call({action:'routines_list',date:'2026-11-16',month:'2026-11'});assert.equal(result.day.stampedAt,savedStamp);assert.deepEqual(result.day.items.map(item=>item.title),['Read original','Code original']);
  assert.throws(()=>f.call(checks([{id:'read',done:false}],2)),/ROUTINE_DAY_CHANGED/);
 });
 test('conflicts and malformed or backdated changes fail before touching saved rows',()=>{
@@ -54,4 +55,10 @@ test('routine days use Bangkok 05:00 and monthly grids handle leap years without
  f.advance('2026-11-15T22:00:00Z');assert.equal(f.today(),'2026-11-16');assert.equal(routineDay('2026-11-15T22:00:00Z'),f.today());
  const leap=routineMonthCells('2024-02').filter(Boolean);assert.equal(leap.length,29);assert.equal(new Set(leap).size,29);assert.equal(routineMonthCells('2026-02').filter(Boolean).length,28);
  assert.equal(routineComplete({items:[],stampedAt:'not-a-stamp'}),false);
+});
+
+test('a routine set created once repeats throughout the month and stamp cannot be placed on other dates',()=>{
+ const f=fixture();f.call(add('read'));f.call(add('walk'));
+ for(let day=16;day<=30;day++){f.advance(`2026-11-${day}T06:00:00Z`);const result=f.call({action:'routines_list'});assert.deepEqual(result.day.items.map(item=>item.id),['read','walk']);assert(result.day.items.every(item=>!item.done));}
+ assert.throws(()=>f.call(stamp(0,'2026-11-29')),/ROUTINE_DAY_CHANGED/);assert.throws(()=>f.call(stamp(0,'2026-12-01')),/ROUTINE_DAY_CHANGED/);
 });

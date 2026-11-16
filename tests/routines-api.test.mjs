@@ -14,6 +14,8 @@ for(const [name,handle] of [['Vercel',r=>edge(r)],['Worker',r=>worker.fetch(r,en
   const payload={action:'check',date:'2026-11-16',month:'2026-11',revision:2,changes:[{id:'read',done:true}]};
   assert.equal((await handle(request('/api/routines',{method:'POST',headers,body:JSON.stringify(payload)}))).status,200);assert.deepEqual(calls[1].changes,payload.changes);assert.equal(calls[1].revision,2);
   assert.equal((await handle(request('/api/routines',{method:'POST',headers,body:JSON.stringify({action:'list'})}))).status,400);
+  payload.action='stamp';delete payload.changes;assert.equal((await handle(request('/api/routines',{method:'POST',headers,body:JSON.stringify(payload)}))).status,200);assert.equal(calls.at(-1).action,'routines_stamp');
+  failure='ROUTINE_INCOMPLETE';assert.equal((await handle(request('/api/routines',{method:'POST',headers,body:JSON.stringify(payload)}))).status,409);
   failure='ROUTINE_CONFLICT';assert.equal((await handle(request('/api/routines',{method:'POST',headers,body:JSON.stringify(payload)}))).status,409);
   failure='ACTION_INVALID';const setup=await handle(request('/api/routines',{headers}));assert.equal(setup.status,503);assert.match((await setup.json()).error,/Apps Script/);
  }finally{globalThis.fetch=original;for(const key of Object.keys(env)){if(previous[key]===undefined)delete process.env[key];else process.env[key]=previous[key]}}

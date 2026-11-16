@@ -18,9 +18,8 @@ export function createRoutineStore({read,write}){
     confirmed=result.day;freshAt=Date.now();
     for(const [id,done] of pending)if(confirmed.items.some(item=>item.id===id&&item.done===done))pending.delete(id);
     const day=overlay(confirmed),stamp=day.stampedAt;
-    const celebrate=Boolean(stamp&&stamp!==lastStamp&&!pending.size);
     if(!pending.size)lastStamp=stamp;
-    emit({...result,loaded:true,day,notice:celebrate?'ทำครบแล้ว ปั๊มตราวันนี้ให้แล้ว!':'บันทึกรูทีนแล้ว',celebration:state.celebration+(celebrate?1:0)});
+    emit({...result,loaded:true,day,notice:'บันทึกรูทีนแล้ว'});
    }
   }catch(error){pending.clear();emit({day:confirmed,error:error.message,notice:''})}
   finally{inflight=false;emit({saving:false})}
@@ -48,12 +47,14 @@ export function createRoutineStore({read,write}){
   },
   async command(payload){
    if(disposed||state.loading||state.saving||commandBusy)return false;
+   if(payload.action==='stamp'&&(state.day.date!==routineDay()||state.day.stampedAt||!state.day.items.length||!state.day.items.every(item=>item.done)))return false;
    commandBusy=true;emit({saving:true,error:'',notice:''});
    try{
     const result=accept(await write({...payload,date:state.day.date,month:state.month}));
     if(disposed)return false;
+    const celebrated=payload.action==='stamp'&&result.day.stampedAt&&result.day.stampedAt!==lastStamp;
     confirmed=result.day;lastStamp=confirmed.stampedAt;freshAt=Date.now();
-    emit({...result,loaded:true,notice:result.todayStarted?'บันทึกรายการหลักแล้ว จะใช้รายการใหม่ในวันถัดไป':'บันทึกรายการรูทีนแล้ว'});return true;
+    emit({...result,loaded:true,celebration:state.celebration+(celebrated?1:0),notice:payload.action==='stamp'?'ปั๊มตราวันนี้สำเร็จแล้ว!':result.todayStarted?'บันทึกรายการหลักแล้ว จะใช้รายการใหม่ในวันถัดไป':'บันทึกรายการรูทีนแล้ว'});return true;
    }catch(error){emit({error:error.message});return false}
    finally{commandBusy=false;emit({saving:false})}
   },
