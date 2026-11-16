@@ -11,6 +11,7 @@ function doPost(e) {
     const expected = PropertiesService.getScriptProperties().getProperty('GROW_ROOM_SECRET');
     if (!expected || body.secret !== expected) return response_({ ok: false, error: 'SECRET_INVALID' });
     if (String(body.action || '').indexOf('cards_') === 0) return response_(flashcards_(body));
+    if (String(body.action || '').indexOf('routines_') === 0) return response_(routines_(body));
     if (body.action === 'kanban_list' || body.action === 'kanban_apply') return response_(kanban_(body));
     if (body.action === 'wins_list' || body.action === 'wins_apply') return response_(smallWins_(body));
     if (String(body.action || '').indexOf('summaries_') === 0) return response_(summaries_(body));
@@ -825,4 +826,96 @@ function kanban_(body) {
     sheet.getRange(2,1,height,KANBAN_HEADERS.length).setNumberFormat('@').setValues(rows);
     return {ok:true,items:result};
   } finally {lock.releaseLock();}
+}
+
+// Daily routine definitions and immutable-per-day task snapshots.
+const ROUTINE_HEADERS=['id','title','icon','order','active','revision','updatedAt'];
+const ROUTINE_DAY_HEADERS=['date','items_json','stampedAt','revision','updatedAt','total','completed'];
+const ROUTINE_ICONS=['book','brain','clock','sprout','flame','check','bolt'];
+function routineToday_(){return Utilities.formatDate(new Date(Date.now()-5*3600000),'Asia/Bangkok','yyyy-MM-dd');}
+function routineDate_(value){
+  const key=String(value||'');
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(key)||isNaN(new Date(key+'T12:00:00Z').getTime())||Utilities.formatDate(new Date(key+'T12:00:00Z'),'UTC','yyyy-MM-dd')!==key)throw new Error('วันที่ไม่ถูกต้อง');
+  return key;
+}
+function routineSheet_(book,name,headers){
+  let sheet=book.getSheetByName(name);
+  if(!sheet){sheet=book.insertSheet(name);sheet.getRange(1,1,1,headers.length).setValues([headers]);sheet.setFrozenRows(1);}
+  if(sheet.getRange(1,1,1,headers.length).getDisplayValues()[0].join('|')!==headers.join('|'))throw new Error('หัวตาราง '+name+' ไม่ตรงกับเวอร์ชันนี้');
+  return sheet;
+}
+function routineTemplates_(sheet){
+  const count=Math.max(0,sheet.getLastRow()-1);
+  if(count>1000)throw new Error('รายการรูทีนเต็ม กรุณาติดต่อผู้ดูแลก่อนเพิ่มรายการ');
+  return count?sheet.getRange(2,1,count,ROUTINE_HEADERS.length).getDisplayValues().map((row,index)=>({row:index+2,id:row[0],title:row[1],icon:row[2],order:Number(row[3])||0,active:row[4]==='yes',revision:Number(row[5])||0,updatedAt:row[6]})).filter(item=>item.id):[];
+}
+function routineDayRow_(sheet,date,templates){
+  const count=Math.max(0,sheet.getLastRow()-1),dates=count?sheet.getRange(2,1,count,1).getDisplayValues().map(row=>row[0]):[];
+  const index=dates.indexOf(date);
+  if(index<0)return {row:0,date:date,items:date===routineToday_()?templates.filter(item=>item.active).sort((a,b)=>a.order-b.order).map(item=>({id:item.id,title:item.title,icon:item.icon,done:false})):[],stampedAt:'',revision:0,updatedAt:''};
+  const row=sheet.getRange(index+2,1,1,ROUTINE_DAY_HEADERS.length).getDisplayValues()[0];
+  let items;try{items=JSON.parse(row[1])}catch(error){throw new Error('ข้อมูลรูทีนของวันนี้อ่านไม่ได้')}
+  if(!Array.isArray(items)||items.length>50)throw new Error('ข้อมูลรูทีนของวันนี้ไม่ถูกต้อง');
+  return {row:index+2,date:date,items:items,stampedAt:row[2],revision:Number(row[3])||0,updatedAt:row[4]};
+}
+function routineResponse_(master,days,body){
+  const today=routineToday_(),date=routineDate_(body.date||today),month=String(body.month||date.slice(0,7));
+  if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))throw new Error('เดือนไม่ถูกต้อง');
+  const templates=routineTemplates_(master),day=routineDayRow_(days,date,templates);
+  const count=Math.max(0,days.getLastRow()-1),calendar=[];
+  if(count){
+    const dates=days.getRange(2,1,count,1).getDisplayValues();
+    // Calendar reads summaries only, never every historical JSON snapshot.
+    const summaries=days.getRange(2,3,count,5).getDisplayValues();
+    dates.forEach((row,index)=>{if(String(row[0]).slice(0,7)!==month)return;const values=summaries[index],total=Number(values[3])||0,completed=Number(values[4])||0;calendar.push({date:row[0],total:total,completed:completed,stampedAt:total>0&&total===completed?values[0]:''})});
+  }
+  const {row,...snapshot}=day;
+  const todayStarted=date===today?Boolean(day.row):Boolean(routineDayRow_(days,today,templates).row);
+  return {ok:true,today:today,month:month,templates:templates.filter(item=>item.active).map(({row,...item})=>item),day:snapshot,calendar:calendar,todayStarted:todayStarted};
+}
+function routineWriteRow_(sheet,row,values){
+  if(row>sheet.getMaxRows())sheet.insertRowsAfter(sheet.getMaxRows(),100);
+  sheet.getRange(row,1,1,values.length).setNumberFormat('@').setValues([values.map(value=>"'"+String(value))]);
+}
+function routines_(body){
+  routineDate_(body.date||routineToday_());
+  if(body.month&&!/^\d{4}-(0[1-9]|1[0-2])$/.test(String(body.month)))throw new Error('INVALID_MONTH');
+  const lock=LockService.getScriptLock();lock.waitLock(30000);
+  try{
+    const book=SpreadsheetApp.openById(spreadsheetId_()),master=routineSheet_(book,'Routines',ROUTINE_HEADERS),days=routineSheet_(book,'RoutineDays',ROUTINE_DAY_HEADERS);
+    if(body.action==='routines_list')return routineResponse_(master,days,body);
+    if(['routines_upsert','routines_archive','routines_check'].indexOf(body.action)<0)throw new Error('ACTION_INVALID');
+    if(!Number.isSafeInteger(body.revision)||body.revision<0)throw new Error('ข้อมูลเวอร์ชันไม่ถูกต้อง');
+    const templates=routineTemplates_(master),now=new Date().toISOString();
+    if(body.action==='routines_check'){
+      const date=routineDate_(body.date);if(date!==routineToday_())throw new Error('ROUTINE_DAY_CHANGED');
+      const day=routineDayRow_(days,date,templates),changes=body.changes;
+      if(!Array.isArray(changes)||!changes.length||changes.length>50)throw new Error('ข้อมูลเช็ครูทีนไม่ถูกต้อง');
+      const seen=new Set();
+      changes.forEach(change=>{if(!change||typeof change.id!=='string'||seen.has(change.id)||typeof change.done!=='boolean'||!day.items.some(item=>item.id===change.id))throw new Error('ไม่พบรูทีนของวันนี้');seen.add(change.id)});
+      const changed=changes.some(change=>day.items.find(item=>item.id===change.id).done!==change.done);
+      if(changed&&day.revision!==body.revision)throw new Error('ROUTINE_CONFLICT');
+      if(!changed)return routineResponse_(master,days,body);
+      const updates=new Map(changes.map(change=>[change.id,change.done]));
+      day.items=day.items.map(item=>({...item,done:updates.has(item.id)?updates.get(item.id):item.done}));
+      const completed=day.items.filter(item=>item.done).length,full=day.items.length>0&&completed===day.items.length;
+      const stampedAt=full?(day.stampedAt||now):'';
+      routineWriteRow_(days,day.row||days.getLastRow()+1,[date,JSON.stringify(day.items),stampedAt,day.revision+1,now,day.items.length,completed]);
+      return routineResponse_(master,days,body);
+    }
+    const input=body.item||{},id=String(input.id||body.id||'');if(!id||id.length>100)throw new Error('รหัสรูทีนไม่ถูกต้อง');
+    const old=templates.find(item=>item.id===id);
+    if(old&&old.revision!==body.revision||!old&&body.revision!==0)throw new Error('ROUTINE_CONFLICT');
+    if(body.action==='routines_archive'){
+      if(!old)throw new Error('ไม่พบรายการรูทีน');
+      routineWriteRow_(master,old.row,[old.id,old.title,old.icon,old.order,'',old.revision+1,now]);
+    }else{
+      const title=String(input.title||'').trim(),icon=String(input.icon||'sprout');
+      if(!title||title.length>160||ROUTINE_ICONS.indexOf(icon)<0)throw new Error('กรอกชื่อรูทีนไม่เกิน 160 ตัวอักษร และเลือกไอคอนที่รองรับ');
+      if(!old&&templates.filter(item=>item.active).length>=50)throw new Error('เพิ่มรูทีนได้สูงสุด 50 ข้อ');
+      const order=old?old.order:Math.max(-1,...templates.map(item=>item.order))+1;
+      routineWriteRow_(master,old?old.row:master.getLastRow()+1,[id,title,icon,order,'yes',(old?old.revision:0)+1,now]);
+    }
+    return routineResponse_(master,days,body);
+  }finally{lock.releaseLock();}
 }

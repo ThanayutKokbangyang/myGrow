@@ -710,3 +710,6 @@ body.stage-open .musicWidget{z-index:45}
  .app>aside{overflow-x:auto;justify-content:flex-start;scrollbar-width:thin;scrollbar-color:#486178 #08182d}
  .app>aside button{flex:0 0 60px;min-width:60px}
 }
+
+/* Weekly progress removed; keep the existing Today's plan and room intact. */
+.pixelDashboard .growthSummary.withoutWeekly{grid-template-columns:minmax(0,1fr)}

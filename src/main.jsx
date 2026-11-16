@@ -7,6 +7,7 @@ import {contains,roomGeometry} from "./room-geometry";
 import {dayKey, formatDayTH} from "./day";
 import {MusicPlayer, unlockSound, woodStep, winSound, smallWinSound} from "./comfort";
 const FocusStage = lazy(() => import("./focus-stage").then(module => ({default: module.FocusStage})));
+const RoutinePage = lazy(() => import("./routines").then(module => ({default: module.RoutinePage})));
 const KanbanBoard = lazy(() => import("./kanban").then(module => ({default: module.KanbanBoard})));
 const Goals = lazy(() => import("./goals").then(module => ({default: module.Goals})));
 const Todos = lazy(() => import("./todos").then(module => ({default: module.Todos})));
@@ -136,7 +137,7 @@ function findWalkPath(start,end,hitsTable){
 
 function App() {
   const [view, setView] = useState("today");
-  const resource={today:"dashboard",progress:"dashboard",history:"activities",goals:"goals",todos:"todos",reflections:"todos",calendar:"calendar",wins:"wins",summaries:"summaries",kanban:"kanban"}[view];
+  const resource={today:"dashboard",progress:"dashboard",history:"activities",goals:"goals",todos:"todos",reflections:"todos",calendar:"calendar",wins:"wins",summaries:"summaries",kanban:"kanban",routines:"routines"}[view];
   const reading=usePendingRead(`/api/${resource}`);
   const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem("grow-sound") !== "off");
   const soundRef = useRef(soundEnabled);
@@ -444,6 +445,7 @@ function App() {
           ["history", "/ui/nav-history.png", "ประวัติ"],
           ["progress", "/ui/nav-progress.png", "พัฒนาการ"],
           ["goals", "/goals/goal/dream.png", "เป้าหมาย"],
+          ["routines", "/ui/pixel/routine.svg", "รูทีน"],
           ["kanban", "/ui/pixel/board.svg", "บอร์ดงาน"],
           ["todos", "/todos/todo-board.png", "ภารกิจวันนี้"],
           ["reflections", "/goals/plan/journal.png", "ห้องสารภาพ"],
@@ -506,6 +508,8 @@ function App() {
               openStage: () => setStage(true),
             }}
           />
+        ) : view === "routines" ? (
+          <RoutinePage onSuccess={celebrateSmallWin}/>
         ) : view === "kanban" ? (
           <KanbanBoard/>
         ) : view === "goals" ? (
@@ -678,27 +682,7 @@ function Today({
           </section>
         </div>
       </section>
-      <div className="growthSummary">
-        <section className="card weekly">
-          <h3>Weekly progress</h3>
-          {Object.entries(SKILLS).map(([k, s]) => (
-            <div className="weekRow" key={k}>
-              <span style={{ background: s.color }}>
-                <SkillArt skill={k} />
-              </span>
-              <b>{s.label}</b>
-              <div className="bar">
-                <i
-                  style={{
-                    background: s.color,
-                    width: `${Math.min(100, totals[k] / 1.2)}%`,
-                  }}
-                />
-              </div>
-              <strong>{Math.min(100, Math.round(totals[k] / 1.2))}%</strong>
-            </div>
-          ))}
-        </section>
+      <div className="growthSummary withoutWeekly">
         <div className="card plan">
           <div className="cardTitle">
             <h2>Today's plan</h2>

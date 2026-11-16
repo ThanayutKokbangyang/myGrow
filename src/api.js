@@ -59,3 +59,6 @@ export async function deleteSummary(id){return api('/api/summaries',{method:'POS
 export const getCachedKanban=()=>reads.peek('/api/kanban');
 export async function loadKanban(refresh=false){return api('/api/kanban'+query({refresh:refresh?1:''}))}
 export async function applyKanban(changes){return api('/api/kanban',{method:'POST',body:JSON.stringify({changes})})}
+
+export async function loadRoutines(options={}){return api('/api/routines'+query(options))}
+export async function writeRoutines(payload){return api('/api/routines',{method:'POST',body:JSON.stringify(payload)})}
