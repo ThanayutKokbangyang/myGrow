@@ -95,6 +95,19 @@ export default async function handler(request) {
   if (path === '/api/session' && request.method === 'GET') return json({ok:true});
   if (path === '/api/status') return json({configured:Boolean(process.env.GOOGLE_APPS_SCRIPT_URL)});
 
+  if(url.pathname==='/api/routines'&&['GET','POST'].includes(request.method)){
+    const body=request.method==='POST'?await request.json().catch(()=>null):null;
+    const action=request.method==='GET'?'list':body?.action;
+    if(!['list','upsert','archive','check','stamp'].includes(action)||request.method==='POST'&&action==='list')return json({error:'ข้อมูลรูทีนไม่ถูกต้อง'},400);
+    try{return json(await sheetRequest({action:'routines_'+action,item:body?.item,id:body?.id,revision:body?.revision,changes:body?.changes,month:request.method==='GET'?url.searchParams.get('month'):body?.month,date:request.method==='GET'?url.searchParams.get('date'):body?.date}));}
+    catch(error){return json({error:error.message==='ACTION_INVALID'?'กรุณาอัปเดตและ Deploy Apps Script เวอร์ชันรูทีนก่อน':error.message==='ROUTINE_CONFLICT'?'รายการเปลี่ยนจากอีกหน้าต่าง กรุณาโหลดใหม่ก่อนลองอีกครั้ง':error.message==='ROUTINE_INCOMPLETE'?'ทำรูทีนวันนี้ให้ครบทุกข้อก่อนปั๊มตรา':error.message==='ROUTINE_DAY_CHANGED'?'วันเปลี่ยนแล้ว กรุณากลับมาวันนี้ก่อนเช็ครูทีน':error.message},['ROUTINE_CONFLICT','ROUTINE_DAY_CHANGED','ROUTINE_INCOMPLETE'].includes(error.message)?409:503);}
+  }
+  if (url.pathname === '/api/kanban' && ['GET','POST'].includes(request.method)) {
+    const body=request.method==='POST'?await request.json().catch(()=>null):null;
+    if(request.method==='POST' && (!Array.isArray(body?.changes)||!body.changes.length||body.changes.length>750))return json({error:'ข้อมูลบอร์ดไม่ถูกต้อง'},400);
+    try { return json(await sheetRequest({action:request.method==='GET'?'kanban_list':'kanban_apply',changes:body?.changes})); }
+    catch(error){return json({error:error.message==='ACTION_INVALID'?'กรุณาอัปเดตและ Deploy Apps Script เวอร์ชันบอร์ดงานก่อน':error.message==='KANBAN_CONFLICT'?'บอร์ดถูกแก้ไขจากหน้าต่างอื่น กรุณาโหลดใหม่ก่อนลองอีกครั้ง':error.message},error.message==='KANBAN_CONFLICT'?409:503);}
+  }
   if (url.pathname === '/api/calendar' && ['GET','POST'].includes(request.method)) {
     if (request.method === 'POST' && !(await validToken(request))) return json({error:'กรุณายืนยันว่าเป็นเท่ก่อนบันทึก'},401);
     const body=request.method==='POST'?await request.json().catch(()=>null):null;

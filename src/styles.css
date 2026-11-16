@@ -704,3 +704,12 @@ body.stage-open .musicWidget{z-index:45}
    lands; it can be dragged out of the way from there. */
 @media(max-width:899px){.focusStage .focusLibrary{padding-top:392px}}
 @media(max-width:620px){.focusStage .focusLibrary{padding-top:332px}}
+
+/* More modes fit in a scrollable mobile rail without shrinking tap targets. */
+@media(max-width:720px){
+ .app>aside{overflow-x:auto;justify-content:flex-start;scrollbar-width:thin;scrollbar-color:#486178 #08182d}
+ .app>aside button{flex:0 0 60px;min-width:60px}
+}
+
+/* Weekly progress removed; keep the existing Today's plan and room intact. */
+.pixelDashboard .growthSummary.withoutWeekly{grid-template-columns:minmax(0,1fr)}

@@ -17,7 +17,7 @@ for(const [name,handle] of [['Vercel',request=>edge(request)],['Worker',request=
   Object.assign(process.env,env);let sheetCalls=0;
   globalThis.fetch=async()=>{sheetCalls++;return Response.json({ok:true,items:[]})};
   try{
-   const paths=['activities','dashboard','goals','todos','calendar','wins','summaries','status','session'];
+   const paths=['activities','dashboard','goals','todos','calendar','wins','summaries','kanban','routines','status','session'];
    for(const path of paths){const response=await handle(req('/api/'+path));assert.equal(response.status,401,path);assert.equal(response.headers.get('cache-control'),'no-store')}
    assert.equal(sheetCalls,0);
    for(const value of ['wrong',null]){
@@ -30,8 +30,8 @@ for(const [name,handle] of [['Vercel',request=>edge(request)],['Worker',request=
    for(const attr of ['HttpOnly','Secure','SameSite=Strict','Path=/'])assert(cookie.includes(attr));
    const headers={cookie:cookie.split(';')[0]};
    assert.equal((await handle(req('/api/session',{headers}))).status,200);
-   for(const path of paths.slice(0,7))assert.equal((await handle(req('/api/'+path,{headers}))).status,200,path);
-   assert.equal(sheetCalls,7);
+   for(const path of paths.slice(0,9))assert.equal((await handle(req('/api/'+path,{headers}))).status,200,path);
+   assert.equal(sheetCalls,9);
    assert.equal((await handle(req('/api/todos',{method:'POST',headers:{...headers,origin:'https://attacker.test'},body:'{}'}))).status,403);
    const legacy=await forged({sub:'tae',exp:Date.now()+100000});
    const expired=await forged({sub:'tae',audience:'private-site-v2',exp:Date.now()-1});
