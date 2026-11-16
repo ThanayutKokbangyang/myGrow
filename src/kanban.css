@@ -1,0 +1,79 @@
+.kanbanPage{--kb-ink:#24374d;--kb-paper:#fff6e5;--kb-muted:#56634c;height:100%;min-height:0;display:flex;flex-direction:column;gap:0;color:var(--kb-ink);font-family:'Noto Sans Thai',sans-serif}
+.kanbanPage button,.kanbanPage input,.kanbanPage select,.kanbanPage textarea{font:inherit}
+.kanbanPage button{cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:40px;font-size:13px;font-weight:700;transition:background-color .15s ease,color .15s ease}
+.kanbanPage button:disabled{cursor:default;opacity:.48}
+.kanbanPage svg{width:18px;height:18px;flex-shrink:0}
+.kanbanPage :is(button,input,select,textarea):focus-visible{outline:3px solid #e8b955;outline-offset:3px}
+.kanbanPage ::selection{background:#c5e3d0;color:#10213b}
+.kbHeader{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:10px 8px 20px;color:#fff2ce}
+.kbHeading{display:flex;align-items:center;gap:14px}
+.kbHeading>img{image-rendering:pixelated;object-fit:contain;width:40px;height:40px}
+.kbHeading h1{font-size:27px;line-height:1.3;margin:0;font-weight:800;letter-spacing:-.02em}
+.kbHeading p{font-size:13px;color:#c4d1db;margin:6px 0 0}
+.kbHeaderActions{display:flex;align-items:center;gap:18px}
+.kbSync{color:#c4d1db;font-size:12px}
+.kanbanPage .kbPrimary{border:2px solid #7c5b29;background:#f2cb73;color:#302b22;border-radius:4px;padding:9px 15px;min-height:42px}
+.kanbanPage .kbPrimary:hover:not(:disabled){background:#ffe09a}
+.kanbanPage .kbSecondary{background:#ebe4d5;border:1px solid #a8a38e;color:#344334;border-radius:4px;padding:8px 13px}
+.kbToolbar{display:flex;align-items:center;gap:12px;background:#142a45;border:1px solid #304963;border-radius:6px;padding:12px 14px;color:#d8e4ef;margin-bottom:18px}
+.kbSearch{display:flex;align-items:center;gap:8px;flex:0 1 320px;min-width:140px;border:1px solid #556780;background:#0d2039;border-radius:4px;padding:0 10px;color:#b6cbd8}
+.kbSearch input{width:100%;min-width:0;background:none;border:0;padding:10px 0;color:#fff4d7;font-size:13px}
+.kbSearch input::placeholder{color:#b6cbd8;opacity:1}
+.kbSearch button{border:0;background:none;color:#c5d5e5;padding:0;min-width:30px}
+.kbToolbar>select{color:#d8e4ef;background:#0d2039;border:1px solid #556780;border-radius:4px;padding:10px;font-size:12px;max-width:180px;min-height:40px}
+.kbSummary{font-size:12px;color:#c4d1db;margin-left:auto;white-space:nowrap;font-variant-numeric:tabular-nums}
+.kanbanPage .kbReload{color:#fff2ce;background:none;border:1px solid #65768c;padding:8px 12px;border-radius:4px;white-space:nowrap}
+.kbError{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;padding:12px 16px;margin-bottom:12px;background:#f9e6df;color:#782e25;border:1px solid #c87e69;border-radius:4px;font-size:13px}
+.kbError>strong{width:100%}.kbError>span{flex:1}.kbError>button{background:#fff6ed;border:1px solid #b56653;border-radius:4px;color:#782e25;padding:6px 10px}
+.kbAnnouncement{margin:0;min-height:0;font-size:12px;color:#d2e9d4}.kbAnnouncement:not(:empty){padding:0 4px 12px}
+.kbCanvas{display:flex;flex:1;min-height:0;gap:16px;overflow:auto;align-items:flex-start;padding:2px 4px 14px;scrollbar-color:#6a7f8f #10233b;scrollbar-width:thin;scroll-padding:4px;overscroll-behavior-x:contain}
+.kbTone-gold{--lane-tone:#bf8c32;--lane-soft:#f0dfb4}.kbTone-blue{--lane-tone:#4275a3;--lane-soft:#d3e1ec}.kbTone-green{--lane-tone:#397766;--lane-soft:#d4e5d7}.kbTone-purple{--lane-tone:#80619d;--lane-soft:#e4d9ee}.kbTone-rose{--lane-tone:#a95e68;--lane-soft:#eed5d6}
+.kbColumn{flex:0 0 310px;min-width:0;max-height:100%;display:flex;flex-direction:column;background:#e9e4d5;border:2px solid #34475d;border-radius:6px;padding:0 12px 8px;transition:background-color .12s ease}
+.kbColumn.dropActive{background:#d2e5dc;outline:3px dashed #72ab97;outline-offset:-6px}
+.kbColumnHeader{display:flex;align-items:center;gap:8px;padding:13px 0 11px;flex-shrink:0}
+.kbColumnDot{width:10px;height:10px;flex-shrink:0;background:var(--lane-tone)}
+.kbColumnHeader h2{font-size:15px;line-height:1.5;margin:0;flex:1;overflow-wrap:anywhere}
+.kbCount{color:#3f4e48;font-size:12px;font-weight:700;background:#d6d6c7;padding:2px 7px;border-radius:4px;font-variant-numeric:tabular-nums}
+.kanbanPage .kbIconButton{border:0;background:transparent;color:#4e5d61;padding:5px;min-height:32px;min-width:32px;border-radius:4px}
+.kanbanPage .kbIconButton:hover:not(:disabled){background:#cfd5cb}
+.kbCards{min-height:0;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#9ba89b transparent;padding:2px 2px 0;flex:0 1 auto}
+.kbCard{background:var(--kb-paper);color:var(--kb-ink);border:1px solid #c2bda9;border-radius:5px;margin-bottom:10px;overflow:visible;position:relative;cursor:grab}
+.kbCard:active{cursor:grabbing}.kbCard.dragging{opacity:.4}.kbCard.dropBefore:before{content:'';position:absolute;top:-7px;left:0;right:0;height:4px;background:#3c8671;border-radius:2px}
+.kbCard:hover{border-color:#5d756c}.kbCard.complete{background:#f1f6e9}
+.kanbanPage .kbCardOpen{display:block;width:100%;text-align:left;background:none;border:0;color:inherit;border-radius:4px;padding:14px 13px 10px;min-height:90px;white-space:normal}
+.kbCardOpen h3{font-size:14px;font-weight:700;line-height:1.65;overflow-wrap:anywhere;margin:8px 0 0}
+.kbCardOpen p{font-size:12px;line-height:1.75;color:#56634c;margin:7px 0 0;font-weight:400;white-space:pre-line;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.kbPriority{font-size:10px;display:inline-block;line-height:1.5;padding:3px 7px;border-radius:3px;background:#e5e8da;color:#45533e}
+.kbPriority.high{background:#f6e0a9;color:#72501e}.kbPriority.urgent{background:#f5d5cd;color:#8c352c}
+.kbCard footer{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:0 12px 12px}
+.kbDue{display:inline-flex;align-items:center;gap:4px;font-size:10px;white-space:nowrap;color:#52604b}.kbDue svg{width:13px;height:13px}
+.kbDue.late{color:#9b3027}.kbDue.today{color:#7b581d}.kbDue.finished{color:#28664d}.kbNoDue{font-size:10px;color:#59654e}
+.kbMove{max-width:140px;min-width:0}.kbMove select{width:100%;max-width:140px;background:#eee8d6;color:#485545;border:1px solid #c5c5af;border-radius:3px;font-size:10px;padding:6px 3px;min-height:32px}
+.kbEmptyColumn{text-align:center;color:#56634c;font-size:12px;line-height:1.7;padding:28px 15px 24px}.kbEmptyColumn img{image-rendering:pixelated;object-fit:contain;opacity:.6}.kbEmptyColumn p{margin:9px 0 0}
+.kanbanPage .kbAddCard{width:100%;justify-content:flex-start;flex-shrink:0;background:none;border:0;border-radius:4px;color:#4e5f4a;padding:10px 8px;margin-top:1px;font-weight:500}
+.kanbanPage .kbAddCard:hover:not(:disabled){background:#d7dece;color:#29443c}
+.kbColumnOrder{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:10px;color:#5c6756;margin-top:8px;border-top:1px solid #c7ccba;padding-top:4px;flex-shrink:0}
+.kbColumnOrder button{border:0;background:none;color:#4e6356;min-width:28px;min-height:28px}.kbColumnOrder svg{width:15px;height:15px}
+.kbNewColumn{flex:0 0 280px}.kbNewColumn>button{width:100%;justify-content:flex-start;padding:15px 18px;border:1px dashed #78909f;border-radius:5px;background:#142b43;color:#dce7df}
+.kbHint{display:flex;align-items:center;gap:6px;padding:10px 5px 2px;color:#b8c9d4;font-size:11px;line-height:1.6}.kbHint svg{width:14px;height:14px}
+.kbSkeleton{display:flex;gap:16px}.kbSkeleton>div{width:310px;min-height:320px;background:#173048;border-radius:6px;padding:20px;opacity:.65}.kbSkeleton i,.kbSkeleton span{display:block;background:#29435a;border-radius:4px;height:80px;margin:20px 0}.kbSkeleton i{height:14px;width:60%;margin:0 0 28px}
+.kbColumnForm{padding:4px 0 12px;overflow:auto}.kbNewColumn .kbColumnForm{padding:16px;background:#e9e4d5;border:2px solid #34475d;border-radius:5px}
+.kbColumnForm label,.kbDrawer form>label,.kbFormRow label{display:flex;flex-direction:column;gap:7px;font-size:12px;font-weight:700;color:#43523f;margin-bottom:18px}
+.kbColumnForm input:not([type=checkbox]),.kbDrawer input,.kbDrawer textarea,.kbDrawer select{box-sizing:border-box;width:100%;padding:11px;border:1px solid #9ca38e;border-radius:4px;background:#fffaf0;color:#263954;font:inherit;font-size:14px;min-height:44px;caret-color:#28766b}
+.kbDrawer textarea{resize:vertical;line-height:1.7;max-height:45vh}.kbDrawer :is(input,textarea)::placeholder{color:#63705d;opacity:1}
+.kbColumnForm fieldset{border:0;padding:0;margin:0 0 18px}.kbColumnForm legend{font-size:12px;font-weight:700;margin-bottom:8px;color:#43523f}
+.kbColors{display:flex;gap:8px}.kbColors button{width:36px;min-height:36px;background:var(--lane-tone);color:#fff;border:2px solid transparent;border-radius:4px}.kbColors .selected{outline:2px solid #263954;outline-offset:2px}
+.kbColumnForm .kbCheckbox{display:flex;flex-direction:row;align-items:flex-start;gap:8px;font-weight:500;font-size:11px;line-height:1.7}.kbCheckbox input{accent-color:#397766;margin:3px 0 0;width:16px;height:16px;flex:none}
+.kbInlineActions{display:flex;gap:8px}.kbInlineActions button{font-size:12px;padding:8px 11px}
+.kbColumnDelete{margin-top:15px;border-top:1px solid #c7ccba;padding-top:12px;display:flex;align-items:center;gap:8px;font-size:12px}
+.kbBackdrop{position:fixed;inset:0;z-index:90;background:#06122499;display:flex;justify-content:flex-end;color:var(--kb-ink)}
+.kbDrawer{width:min(480px,100%);height:100%;height:100dvh;box-sizing:border-box;overflow-y:auto;padding:28px;background:#fff3dc;box-shadow:-10px 0 36px #02081133;scrollbar-width:thin;scrollbar-color:#9ca38e #fff3dc}
+.kbDrawer>header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:30px}.kbDrawer h2{font-size:22px;margin:0;line-height:1.5}.kbDrawer header p{font-size:12px;color:#5a6850;margin:6px 0 0}
+.kbFormRow{display:grid;grid-template-columns:1fr 1fr;gap:14px}.kbEditorActions{display:flex;gap:10px;margin-top:26px}.kbEditorActions .kbPrimary{flex:1;background:#2c7969;color:#fff8e6;border-color:#20584d}.kbEditorActions .kbPrimary:hover:not(:disabled){background:#225e52}
+.kbDeleteArea{padding-top:24px;margin-top:26px;border-top:1px solid #c7ccba;font-size:13px}.kbDeleteArea>p{margin:0 0 12px}.kbDeleteArea button{margin-right:8px}
+.kanbanPage .kbTextDanger{padding:4px 0;min-height:32px;border:0;background:none;color:#9b3d31;font-size:12px}.kanbanPage .kbDanger{padding:8px 12px;background:#a14233;color:#fff6e8;border:1px solid #87372b;border-radius:4px}
+.kbSrOnly{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@media(min-width:1550px){.kbColumn{flex-basis:340px}}
+@media(max-width:980px){.kanbanPage{height:calc(100dvh - 28px);min-height:500px}.kbColumn{flex-basis:300px}.kbSync{display:none}.kbToolbar{flex-wrap:wrap;gap:10px}.kbSearch{flex:1}.kbSummary{margin-left:0}.kbToolbar>select{max-width:150px}}
+@media(max-width:720px){.kanbanPage{height:calc(100dvh - 100px);min-height:520px}.kbHeader{padding:4px 0 16px;gap:10px}.kbHeading{gap:10px}.kbHeading>img{width:32px;height:32px}.kbHeading h1{font-size:23px}.kbHeading p{font-size:11px}.kbHeaderActions{gap:8px}.kbHeaderActions .kbPrimary{padding:8px 10px;font-size:12px}.kbToolbar{padding:10px;margin-bottom:12px}.kbSearch{flex-basis:calc(100% - 155px)}.kbSearch input{font-size:12px}.kbSummary{flex:1;font-size:11px}.kbToolbar>select{font-size:11px;width:135px}.kanbanPage .kbReload{min-height:34px;font-size:11px;padding:4px 10px}.kbCanvas{gap:12px;scroll-snap-type:x proximity}.kbColumn{flex-basis:min(310px,85vw);scroll-snap-align:start}.kbHint{font-size:10px;padding-top:6px}.kbDrawer{padding:24px 20px}.kbBackdrop{overscroll-behavior:contain}}
+@media(prefers-reduced-motion:reduce){.kanbanPage *{transition:none!important;scroll-behavior:auto!important}}

@@ -1,0 +1,135 @@
+import React,{useEffect,useMemo,useRef,useState} from 'react';
+import {dayKey} from './day';
+import {useKanban} from './use-kanban';
+import {cardsOf,columnsOf,dueState,moveCard,newId,PRIORITIES,TONES} from './kanban-model';
+import './kanban.css';
+
+function Icon({name,...props}){
+ const paths={plus:'M12 5v14M5 12h14',close:'m6 6 12 12M18 6 6 18',edit:'m15 5 4 4M4 20l4-1L20 7a2.8 2.8 0 0 0-4-4L4 15v5Z',calendar:'M7 3v4M17 3v4M3 10h18M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z',refresh:'M20 7v5h-5M4 17v-5h5M6 6a8 8 0 0 1 13 3M18 18a8 8 0 0 1-13-3',search:'m21 21-5-5M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z',left:'m14 6-6 6 6 6',right:'m10 6 6 6-6 6',check:'m5 12 4 4L19 6',trash:'M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7'};
+ return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}><path d={paths[name]||paths.plus}/></svg>;
+}
+const dateLabel=date=>new Date(date+'T12:00:00+07:00').toLocaleDateString('th-TH',{day:'numeric',month:'short'});
+const blankCard=columnId=>({id:newId(),type:'card',columnId,title:'',detail:'',priority:'normal',due:'',order:0,tone:'gold',done:false,revision:0});
+
+function CardEditor({item,columns,busy,error,onClose,onSave,onDelete}){
+ const [form,setForm]=useState(item),[confirm,setConfirm]=useState(false);
+ const dialog=useRef(null),savedFocus=useRef(null);
+ useEffect(()=>{
+  savedFocus.current=document.activeElement;
+  dialog.current?.querySelector('input')?.focus();
+  return()=>savedFocus.current?.focus?.();
+ },[]);
+ useEffect(()=>{
+  const keydown=event=>{
+   if(event.key==='Escape'&&!busy){event.preventDefault();onClose()}
+   if(event.key!=='Tab')return;
+   const controls=[...dialog.current.querySelectorAll('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled)')];
+   const first=controls[0],last=controls.at(-1);
+   if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus()}
+   else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus()}
+  };
+  document.addEventListener('keydown',keydown);return()=>document.removeEventListener('keydown',keydown);
+ },[busy,onClose]);
+ const set=(key,value)=>setForm(old=>({...old,[key]:value}));
+ return <div className="kbBackdrop" onMouseDown={event=>{if(event.target===event.currentTarget&&!busy)onClose()}}>
+  <section className="kbDrawer" role="dialog" aria-modal="true" aria-labelledby="kbEditorTitle" ref={dialog}>
+   <header><div><h2 id="kbEditorTitle">{item.revision?'รายละเอียดการ์ด':'เพิ่มการ์ดใหม่'}</h2><p>เก็บรายละเอียด แล้วค่อยลงมือทำ</p></div><button className="kbIconButton" disabled={busy} onClick={onClose} aria-label="ปิดรายละเอียด"><Icon name="close"/></button></header>
+   <form onSubmit={async event=>{event.preventDefault();if(await onSave({...form,title:form.title.trim(),detail:form.detail.trim()}))onClose()}}>
+    <label>ชื่องาน<input required maxLength={180} value={form.title} disabled={busy} onChange={event=>set('title',event.target.value)} placeholder="งานนี้เราจะทำอะไร?"/></label>
+    <label>รายละเอียด<textarea rows="6" maxLength={5000} value={form.detail} disabled={busy} onChange={event=>set('detail',event.target.value)} placeholder="สิ่งที่ต้องทำ ลิงก์ หรือโน้ตที่อยากเก็บไว้"/></label>
+    <label>คอลัมน์<select value={form.columnId} disabled={busy} onChange={event=>set('columnId',event.target.value)}>{columns.map(column=><option key={column.id} value={column.id}>{column.title}</option>)}</select></label>
+    <div className="kbFormRow"><label>ความสำคัญ<select value={form.priority} disabled={busy} onChange={event=>set('priority',event.target.value)}>{Object.entries(PRIORITIES).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label><label>วันครบกำหนด<input type="date" value={form.due} disabled={busy} onChange={event=>set('due',event.target.value)}/></label></div>
+    {error&&<p className="kbError" role="alert">{error}</p>}
+    <div className="kbEditorActions"><button className="kbPrimary" disabled={busy||!form.title.trim()}>{busy?'กำลังบันทึก…':'บันทึกการ์ด'}</button><button className="kbSecondary" type="button" disabled={busy} onClick={onClose}>ยกเลิก</button></div>
+   </form>
+   {item.revision>0&&<div className="kbDeleteArea">{confirm?<><p>ลบการ์ดนี้ออกจากบอร์ด?</p><button className="kbDanger" disabled={busy} onClick={async()=>{if(await onDelete(item))onClose()}}>ยืนยันลบ</button><button className="kbSecondary" disabled={busy} onClick={()=>setConfirm(false)}>เก็บไว้ก่อน</button></>:<button className="kbTextDanger" disabled={busy} onClick={()=>setConfirm(true)}><Icon name="trash"/>ลบการ์ด</button>}</div>}
+  </section>
+ </div>;
+}
+
+function ColumnForm({column,busy,error,count,canDelete,onSave,onDelete,onCancel}){
+ const [title,setTitle]=useState(column.title),[tone,setTone]=useState(column.tone),[done,setDone]=useState(column.done),[confirm,setConfirm]=useState(false);
+ return <form className="kbColumnForm" onSubmit={async event=>{event.preventDefault();if(await onSave({...column,title:title.trim(),tone,done}))onCancel()}}>
+  <label>ชื่อคอลัมน์<input autoFocus maxLength={180} required value={title} disabled={busy} onChange={event=>setTitle(event.target.value)}/></label>
+  <fieldset><legend>สีคอลัมน์</legend><div className="kbColors">{TONES.map(value=><button key={value} type="button" className={`kbTone-${value} ${tone===value?'selected':''}`} disabled={busy} aria-label={{gold:'เหลือง',blue:'น้ำเงิน',green:'เขียว',purple:'ม่วง',rose:'ชมพู'}[value]} aria-pressed={tone===value} onClick={()=>setTone(value)}>{tone===value&&<Icon name="check"/>}</button>)}</div></fieldset>
+  <label className="kbCheckbox"><input type="checkbox" checked={done} disabled={busy} onChange={event=>setDone(event.target.checked)}/>นับงานในคอลัมน์นี้ว่าเสร็จแล้ว</label>
+  {error&&<p className="kbError" role="alert">{error}</p>}
+  <div className="kbInlineActions"><button className="kbPrimary" disabled={busy||!title.trim()}>บันทึก</button><button className="kbSecondary" type="button" disabled={busy} onClick={onCancel}>ยกเลิก</button></div>
+  {column.revision>0&&<div className="kbColumnDelete">{confirm?<><span>ลบคอลัมน์ว่างนี้?</span><button type="button" className="kbDanger" disabled={busy} onClick={onDelete}>ยืนยันลบ</button></>:<button type="button" className="kbTextDanger" disabled={busy||count>0||!canDelete} title={count?'ย้ายการ์ดออกให้หมดก่อน':!canDelete?'ต้องเหลืออย่างน้อย 1 คอลัมน์':'ลบคอลัมน์ว่าง'} onClick={()=>setConfirm(true)}>ลบคอลัมน์</button>}</div>}
+ </form>;
+}
+
+export function KanbanBoard(){
+ const {items,ready,busy,saving,error,notice,persist,refresh}=useKanban();
+ const [query,setQuery]=useState(''),[priority,setPriority]=useState('all'),[editing,setEditing]=useState(null),[columnForm,setColumnForm]=useState(null);
+ const [drag,setDrag]=useState(null),[target,setTarget]=useState(null);
+ const columns=useMemo(()=>columnsOf(items),[items]);
+ const today=dayKey();
+ const allCards=items.filter(item=>item.type==='card'),doneIds=new Set(columns.filter(column=>column.done).map(column=>column.id));
+ const doneCount=allCards.filter(card=>doneIds.has(card.columnId)).length;
+ const visible=card=>(priority==='all'||card.priority===priority)&&(!query.trim()||[card.title,card.detail].join(' ').toLowerCase().includes(query.trim().toLowerCase()));
+ const locked=busy||!ready,filtered=Boolean(query.trim())||priority!=='all';
+ async function saveCard(form){
+  const old=items.find(item=>item.id===form.id);
+  let next=old?moveCard(items,old.id,form.columnId,old.columnId===form.columnId?old.id:null):items;
+  const moved=next.find(item=>item.id===form.id);
+  const card={...form,order:moved?.order??(Math.max(-1,...cardsOf(next,form.columnId).map(item=>item.order))+1)};
+  next=old?next.map(item=>item.id===form.id?card:item):[...next,card];
+  return persist(next,old?'อัปเดตการ์ดแล้ว':'เพิ่มการ์ดแล้ว พร้อมเริ่มเลย');
+ }
+ async function move(id,columnId,beforeId=null){
+  setDrag(null);setTarget(null);
+  if(locked)return;
+  const next=moveCard(items,id,columnId,beforeId);
+  const column=columns.find(item=>item.id===columnId);
+  await persist(next,`ย้ายการ์ดไป “${column?.title}” แล้ว`);
+ }
+ function drop(event,columnId,beforeId=null){
+  event.preventDefault();event.stopPropagation();
+  const id=drag||event.dataTransfer.getData('text/plain');
+  if(id)move(id,columnId,beforeId);
+ }
+ function over(event,columnId,beforeId=null){
+  if(!drag||locked)return;event.preventDefault();event.stopPropagation();event.dataTransfer.dropEffect='move';
+  if(target?.columnId!==columnId||target?.beforeId!==beforeId)setTarget({columnId,beforeId});
+ }
+ async function saveColumn(column){
+  return persist(items.some(item=>item.id===column.id)?items.map(item=>item.id===column.id?column:item):[...items,column],'บันทึกคอลัมน์แล้ว');
+ }
+ async function shiftColumn(id,direction){
+  const order=columns.map(column=>column.id),index=order.indexOf(id),to=index+direction;
+  if(to<0||to>=order.length)return;
+  [order[index],order[to]]=[order[to],order[index]];
+  await persist(items.map(item=>item.type==='column'?{...item,order:order.indexOf(item.id)}:item),'ย้ายลำดับคอลัมน์แล้ว');
+ }
+ return <section className="kanbanPage" aria-labelledby="kbTitle">
+  <header className="kbHeader"><div className="kbHeading"><img src="/ui/pixel/board.svg" width="40" height="40" alt=""/><div><h1 id="kbTitle">บอร์ดงาน</h1><p>ค่อย ๆ ขยับงาน ทีละใบ</p></div></div><div className="kbHeaderActions"><span className="kbSync" role="status">{saving?'กำลังบันทึก…':ready?'บันทึกกับ Google Sheets':'กำลังเชื่อมต่อบอร์ด…'}</span><button className="kbPrimary" disabled={locked||!columns.length} onClick={()=>setEditing(blankCard(columns[0].id))}><Icon name="plus"/>เพิ่มการ์ด</button></div></header>
+  <div className="kbToolbar"><label className="kbSearch"><Icon name="search"/><input aria-label="ค้นหาการ์ด" placeholder="ค้นหางานในบอร์ด…" value={query} onChange={event=>setQuery(event.target.value)}/>{query&&<button onClick={()=>setQuery('')} aria-label="ล้างคำค้น"><Icon name="close"/></button>}</label><select aria-label="กรองความสำคัญ" value={priority} onChange={event=>setPriority(event.target.value)}><option value="all">ทุกความสำคัญ</option>{Object.entries(PRIORITIES).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select><span className="kbSummary">{ready?`${allCards.length} การ์ด · เสร็จแล้ว ${doneCount}`:'กำลังเปิดบอร์ด…'}</span><button className="kbReload" disabled={busy} onClick={refresh}><Icon name="refresh"/>โหลดใหม่</button></div>
+  {error&&<div className="kbError" role="alert"><strong>บันทึกหรือโหลดบอร์ดไม่สำเร็จ</strong><span>{error}</span><button disabled={busy} onClick={refresh}>ลองโหลดใหม่</button></div>}
+  <p className="kbAnnouncement" role="status" aria-live="polite">{notice}</p>
+  <div className="kbCanvas" aria-label="คอลัมน์งาน">
+   {!ready&&!error&&<div className="kbSkeleton" aria-hidden="true">{[0,1,2].map(index=><div key={index}><i/><span/><span/></div>)}</div>}
+   {columns.map((column,index)=>{
+    const cards=cardsOf(items,column.id),shown=cards.filter(visible);
+    return <section className={`kbColumn kbTone-${column.tone} ${target?.columnId===column.id&&!target.beforeId?'dropActive':''}`} key={column.id} aria-label={column.title} onDragOver={event=>over(event,column.id)} onDrop={event=>drop(event,column.id)}>
+     <header className="kbColumnHeader"><span className="kbColumnDot"/><h2>{column.title}</h2><span className="kbCount">{filtered?`${shown.length}/${cards.length}`:cards.length}</span><button className="kbIconButton" disabled={locked} onClick={()=>setColumnForm(columnForm?.id===column.id?null:column)} aria-label={`ตั้งค่าคอลัมน์ ${column.title}`}><Icon name="edit"/></button></header>
+     {columnForm?.id===column.id?<ColumnForm column={columnForm} count={cards.length} canDelete={columns.length>1} busy={busy} error={error} onSave={saveColumn} onDelete={async()=>{if(await persist(items.filter(item=>item.id!==column.id),'ลบคอลัมน์แล้ว'))setColumnForm(null)}} onCancel={()=>setColumnForm(null)}/>:<>
+      <div className="kbCards">{shown.map(card=>{
+       const due=dueState(card.due,today),completed=column.done;
+       return <article key={card.id} className={`kbCard ${drag===card.id?'dragging':''} ${target?.beforeId===card.id?'dropBefore':''} ${completed?'complete':''}`} draggable={!locked} onDragStart={event=>{if(locked){event.preventDefault();return}setDrag(card.id);event.dataTransfer.setData('text/plain',card.id);event.dataTransfer.effectAllowed='move'}} onDragEnd={()=>{setDrag(null);setTarget(null)}} onDragOver={event=>over(event,column.id,card.id)} onDrop={event=>drop(event,column.id,card.id)}>
+        <button className="kbCardOpen" disabled={locked} onClick={()=>setEditing(card)} aria-label={`เปิดการ์ด ${card.title}`}><span className={`kbPriority ${card.priority}`}>{PRIORITIES[card.priority]}</span><h3>{card.title}</h3>{card.detail&&<p>{card.detail}</p>}</button>
+        <footer>{card.due?<span className={`kbDue ${completed?'finished':due}`}><Icon name={completed?'check':'calendar'}/>{completed?'เสร็จแล้ว':due==='late'?'เลยกำหนด':due==='today'?'วันนี้':dateLabel(card.due)}</span>:<span className="kbNoDue">{completed?'เสร็จแล้ว':'ไม่มีกำหนด'}</span>}<label className="kbMove"><span className="kbSrOnly">ย้ายการ์ด {card.title} ไปคอลัมน์</span><select value={column.id} disabled={locked} onChange={event=>move(card.id,event.target.value)}>{columns.map(option=><option key={option.id} value={option.id}>{option.title}</option>)}</select></label></footer>
+       </article>;
+      })}</div>
+      {!shown.length&&<div className="kbEmptyColumn"><img src={`/ui/pixel/${column.done?'check':'plus'}.png`} width="26" height="26" alt=""/><p>{filtered?'ไม่พบการ์ดที่ตรงกับตัวกรอง':column.done?'งานที่เสร็จแล้วจะมาอยู่ตรงนี้':'เพิ่มการ์ด หรือลากงานมาวางที่นี่'}</p></div>}
+      <button className="kbAddCard" disabled={locked} onClick={()=>setEditing(blankCard(column.id))}><Icon name="plus"/>เพิ่มการ์ด</button>
+      <div className="kbColumnOrder"><button disabled={locked||index===0} onClick={()=>shiftColumn(column.id,-1)} aria-label={`ย้ายคอลัมน์ ${column.title} ไปทางซ้าย`}><Icon name="left"/></button><span>{column.done?'คอลัมน์งานที่เสร็จแล้ว':'ลากการ์ดเพื่อย้ายงาน'}</span><button disabled={locked||index===columns.length-1} onClick={()=>shiftColumn(column.id,1)} aria-label={`ย้ายคอลัมน์ ${column.title} ไปทางขวา`}><Icon name="right"/></button></div>
+     </>}
+    </section>;
+   })}
+   {ready&&columns.length<12&&<div className="kbNewColumn">{columnForm?.revision===0?<ColumnForm column={columnForm} count={0} canDelete={false} busy={busy} error={error} onSave={saveColumn} onCancel={()=>setColumnForm(null)}/>:<button disabled={locked} onClick={()=>setColumnForm({id:newId(),type:'column',columnId:'',title:'',detail:'',priority:'normal',due:'',order:Math.max(-1,...columns.map(item=>item.order))+1,tone:TONES[columns.length%TONES.length],done:false,revision:0})}><Icon name="plus"/>เพิ่มคอลัมน์</button>}</div>}
+  </div>
+  <div className="kbHint"><Icon name="check"/><span>ลากเพื่อจัดลำดับและย้ายคอลัมน์ · บนมือถือใช้เมนูใต้การ์ดเพื่อย้ายงาน</span></div>
+  {editing&&<CardEditor item={editing} columns={columns} busy={busy} error={error} onClose={()=>setEditing(null)} onSave={saveCard} onDelete={card=>persist(items.filter(item=>item.id!==card.id),'ลบการ์ดแล้ว')}/>}
+ </section>;
+}

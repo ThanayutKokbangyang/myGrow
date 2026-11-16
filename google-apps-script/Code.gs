@@ -11,6 +11,7 @@ function doPost(e) {
     const expected = PropertiesService.getScriptProperties().getProperty('GROW_ROOM_SECRET');
     if (!expected || body.secret !== expected) return response_({ ok: false, error: 'SECRET_INVALID' });
     if (String(body.action || '').indexOf('cards_') === 0) return response_(flashcards_(body));
+    if (body.action === 'kanban_list' || body.action === 'kanban_apply') return response_(kanban_(body));
     if (body.action === 'wins_list' || body.action === 'wins_apply') return response_(smallWins_(body));
     if (String(body.action || '').indexOf('summaries_') === 0) return response_(summaries_(body));
     if (body.action === 'goals_list' || body.action === 'goals_apply') return response_(goals_(body));
@@ -760,4 +761,68 @@ function calendar_(body) {
     });
     return { ok: true, items: changed, deleted:ops.filter(op=>op.type==='delete').map(op=>op.id) };
   } finally { lock.releaseLock(); }
+}
+
+// One private Kanban board. Validate the complete result before writing it.
+const KANBAN_HEADERS = ['id','type','columnId','title','detail','priority','due','order','tone','done','revision','updatedAt'];
+function kanbanInput_(raw) {
+  if (!raw || typeof raw !== 'object') throw new Error('ข้อมูลการ์ดไม่ถูกต้อง');
+  const text = (key, max) => {
+    const value = String(raw[key] == null ? '' : raw[key]).trim();
+    if (value.length > max) throw new Error('ข้อความยาวเกินไป (' + key + ')');
+    return value;
+  };
+  const item = {id:text('id',100),type:text('type',10),columnId:text('columnId',100),title:text('title',180),detail:text('detail',5000),priority:text('priority',10)||'normal',due:text('due',10),order:Number(raw.order),tone:text('tone',10)||'gold',done:raw.done===true||raw.done==='yes'};
+  if (!item.id || !item.title || ['column','card'].indexOf(item.type)<0) throw new Error('กรอกชื่อให้ครบก่อนบันทึก');
+  if (!Number.isSafeInteger(item.order) || item.order<0 || item.order>10000) throw new Error('ลำดับไม่ถูกต้อง');
+  if (['normal','high','urgent'].indexOf(item.priority)<0 || ['gold','blue','green','purple','rose'].indexOf(item.tone)<0) throw new Error('สีหรือความสำคัญไม่ถูกต้อง');
+  if (item.type==='card' && !item.columnId) throw new Error('กรุณาเลือกคอลัมน์');
+  if (item.type==='column') {item.columnId='';item.detail='';item.due='';item.priority='normal';}
+  if (item.due && (!/^\d{4}-\d{2}-\d{2}$/.test(item.due) || isNaN(new Date(item.due+'T12:00:00Z').getTime()) || Utilities.formatDate(new Date(item.due+'T12:00:00Z'),'UTC','yyyy-MM-dd')!==item.due)) throw new Error('วันครบกำหนดไม่ถูกต้อง');
+  return item;
+}
+function kanban_(body) {
+  const lock=LockService.getScriptLock();lock.waitLock(30000);
+  try {
+    const book=SpreadsheetApp.openById(spreadsheetId_());
+    let sheet=book.getSheetByName('Kanban');
+    if (!sheet) {
+      sheet=book.insertSheet('Kanban');
+      sheet.getRange(1,1,1,KANBAN_HEADERS.length).setValues([KANBAN_HEADERS]);
+      sheet.setFrozenRows(1);
+      const now=new Date().toISOString();
+      const defaults=[['list-todo','สิ่งที่ต้องทำ','gold',false],['list-doing','กำลังทำ','blue',false],['list-done','เสร็จแล้ว','green',true]].map((value,order)=>({id:value[0],type:'column',columnId:'',title:value[1],detail:'',priority:'normal',due:'',order:order,tone:value[2],done:value[3],revision:1,updatedAt:now}));
+      sheet.getRange(2,1,defaults.length,KANBAN_HEADERS.length).setNumberFormat('@').setValues(defaults.map(item=>KANBAN_HEADERS.map(key=>"'"+String(key==='done'?(item.done?'yes':''):item[key]))));
+    }
+    if (sheet.getRange(1,1,1,KANBAN_HEADERS.length).getDisplayValues()[0].join('|')!==KANBAN_HEADERS.join('|')) throw new Error('หัวตาราง Kanban ไม่ตรงกับเวอร์ชันนี้');
+    const count=Math.max(0,sheet.getLastRow()-1);
+    if (count>512) throw new Error('บอร์ดรองรับไม่เกิน 500 การ์ดและ 12 คอลัมน์');
+    const items=count?sheet.getRange(2,1,count,KANBAN_HEADERS.length).getDisplayValues().filter(row=>String(row[0]).trim()).map(row=>{
+      const item=Object.fromEntries(KANBAN_HEADERS.map((key,index)=>[key,row[index]]));
+      item.order=Number(item.order)||0;item.revision=Number(item.revision)||0;item.done=item.done==='yes';return item;
+    }):[];
+    if (body.action==='kanban_list') return {ok:true,items:items};
+    if (body.action!=='kanban_apply' || !Array.isArray(body.changes) || !body.changes.length || body.changes.length>750) throw new Error('INVALID_CHANGES');
+    const next=new Map(items.map(item=>[item.id,item])),seen=new Set();
+    body.changes.forEach(op=>{
+      if (!op || typeof op.id!=='string' || !op.id || op.id.length>100 || seen.has(op.id) || ['upsert','delete'].indexOf(op.type)<0 || !Number.isSafeInteger(op.revision) || op.revision<0) throw new Error('INVALID_CHANGES');
+      seen.add(op.id);const old=next.get(op.id);
+      if (old && old.revision!==op.revision || !old && op.type==='upsert' && op.revision!==0) throw new Error('KANBAN_CONFLICT');
+      if (op.type==='delete') {next.delete(op.id);return;}
+      const item=kanbanInput_(op.item);
+      if (item.id!==op.id || old && old.type!==item.type) throw new Error('INVALID_ID');
+      item.revision=(old?old.revision:0)+1;item.updatedAt=new Date().toISOString();next.set(item.id,item);
+    });
+    const result=Array.from(next.values()),columns=result.filter(item=>item.type==='column'),cards=result.filter(item=>item.type==='card');
+    if (!columns.length || columns.length>12 || cards.length>500) throw new Error('บอร์ดต้องมี 1–12 คอลัมน์ และไม่เกิน 500 การ์ด');
+    const columnIds=new Set(columns.map(item=>item.id));
+    if (cards.some(item=>!columnIds.has(item.columnId))) throw new Error('ย้ายการ์ดออกให้หมดก่อนลบคอลัมน์');
+    const rows=result.map(item=>KANBAN_HEADERS.map(key=>"'"+String(key==='done'?(item.done?'yes':''):item[key]==null?'':item[key])));
+    // One bounded rectangular write, including blanks for removed rows.
+    const height=Math.max(count,rows.length);
+    while(rows.length<height)rows.push(KANBAN_HEADERS.map(()=>''));
+    if (height+1>sheet.getMaxRows()) sheet.insertRowsAfter(sheet.getMaxRows(),height+1-sheet.getMaxRows());
+    sheet.getRange(2,1,height,KANBAN_HEADERS.length).setNumberFormat('@').setValues(rows);
+    return {ok:true,items:result};
+  } finally {lock.releaseLock();}
 }

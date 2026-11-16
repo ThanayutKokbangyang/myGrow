@@ -95,6 +95,12 @@ export default async function handler(request) {
   if (path === '/api/session' && request.method === 'GET') return json({ok:true});
   if (path === '/api/status') return json({configured:Boolean(process.env.GOOGLE_APPS_SCRIPT_URL)});
 
+  if (url.pathname === '/api/kanban' && ['GET','POST'].includes(request.method)) {
+    const body=request.method==='POST'?await request.json().catch(()=>null):null;
+    if(request.method==='POST' && (!Array.isArray(body?.changes)||!body.changes.length||body.changes.length>750))return json({error:'ข้อมูลบอร์ดไม่ถูกต้อง'},400);
+    try { return json(await sheetRequest({action:request.method==='GET'?'kanban_list':'kanban_apply',changes:body?.changes})); }
+    catch(error){return json({error:error.message==='ACTION_INVALID'?'กรุณาอัปเดตและ Deploy Apps Script เวอร์ชันบอร์ดงานก่อน':error.message==='KANBAN_CONFLICT'?'บอร์ดถูกแก้ไขจากหน้าต่างอื่น กรุณาโหลดใหม่ก่อนลองอีกครั้ง':error.message},error.message==='KANBAN_CONFLICT'?409:503);}
+  }
   if (url.pathname === '/api/calendar' && ['GET','POST'].includes(request.method)) {
     if (request.method === 'POST' && !(await validToken(request))) return json({error:'กรุณายืนยันว่าเป็นเท่ก่อนบันทึก'},401);
     const body=request.method==='POST'?await request.json().catch(()=>null):null;

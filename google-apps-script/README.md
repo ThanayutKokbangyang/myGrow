@@ -33,3 +33,13 @@ After changing this file, update the existing Apps Script deployment with a new 
 The Flashcards web mode and its proxy endpoints have been removed. Existing Vocabulary rows and files are retained; legacy Apps Script helpers remain for data compatibility. No Apps Script redeployment is needed for this web-only update.
 
 Feature screens load on demand. Browser API reads are deduplicated and cached for at most 60 seconds in memory (not persistent storage), with bounded entries. Successful mutations invalidate their resource cache; activity mutations also invalidate dashboard data. Explicit reloads bypass freshness. PNG illustrations with exact pixel-equivalent WebP replacements are served as WebP.
+
+## Kanban board (บอร์ดงาน)
+
+Before deploying the web branch, replace the existing Apps Script `Code.gs` with this repository's complete `google-apps-script/Code.gs`. Keep the existing `GROW_ROOM_SECRET` and `GROW_ROOM_SPREADSHEET_ID`. Deploy → Manage deployments → Edit → New version → Deploy, keeping the same Web App URL.
+
+The first board request creates a `Kanban` tab with three columns: สิ่งที่ต้องทำ, กำลังทำ, เสร็จแล้ว. Existing sheets are untouched. One board supports up to 12 custom columns and 500 cards. Card titles, details, priority, due date, column, and ordering are stored in Sheets. Empty columns can be removed; columns holding cards must be emptied first. Mark any column as completed to include its cards in the completed count.
+
+Updates validate the whole resulting board under a script lock and check per-item revisions to reject stale changes from another tab. A bounded rectangular write stores literal text and clears removed rows. The client sends only changed operations, keeps the server's resulting revisions, and rolls back optimistic UI changes on failure. Reload before retrying a conflict. The API inherits the site's existing password/session checks. No extra environment variables or database setup are required.
+
+On desktop, drag cards onto a card to insert before it, or onto a column to append. On mobile and with a keyboard, use the column selector under each card. Column arrow buttons reorder columns. Search and priority filters affect only the view, not stored cards.
