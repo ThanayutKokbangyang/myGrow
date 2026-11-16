@@ -14,7 +14,7 @@ export function moveCard(items,id,columnId,beforeId=null){
  if(card.columnId!==columnId)cardsOf(items,card.columnId).filter(item=>item.id!==id).forEach((item,order)=>changes.set(item.id,{...item,order}));
  return items.map(item=>changes.get(item.id)||item);
 }
-const fields=['type','columnId','title','detail','priority','due','order','tone','done'];
+const fields=['type','columnId','title','detail','priority','due','order','tone','done','month'];
 export function changesBetween(before,after){
  const previous=new Map(before.map(item=>[item.id,item])),next=new Map(after.map(item=>[item.id,item]));
  const changes=[];
@@ -23,3 +23,16 @@ export function changesBetween(before,after){
  return changes;
 }
 export function dueState(due,today){return !due?'':due<today?'late':due===today?'today':'upcoming'}
+
+const monthFormatter=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Bangkok',year:'numeric',month:'2-digit'});
+// Legacy cards keep their inferred month when saved; editing never reassigns it.
+export function cardMonth(card){
+ if(/^\d{4}-(0[1-9]|1[0-2])$/.test(card.month||''))return card.month;
+ if(/^\d{4}-(0[1-9]|1[0-2])-\d{2}$/.test(card.due||''))return card.due.slice(0,7);
+ const date=new Date(card.updatedAt);
+ if(Number.isNaN(date.getTime()))return 'unassigned';
+ const parts=Object.fromEntries(monthFormatter.formatToParts(date).map(p=>[p.type,p.value]));
+ return `${parts.year}-${parts.month}`;
+}
+export const cardsInMonth=(items,month)=>items.filter(item=>item.type==='card'&&(month==='all'||cardMonth(item)===month));
+export function shiftBoardMonth(month,amount){const date=new Date(month+'-01T12:00:00Z');date.setUTCMonth(date.getUTCMonth()+amount);return date.toISOString().slice(0,7)}
