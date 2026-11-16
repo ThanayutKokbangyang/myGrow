@@ -2,18 +2,18 @@ import {beginRead} from './loading-state.js';
 import {createReadCache} from './read-cache.js';
 const reads=createReadCache();
 function readKey(path){const url=new URL(path,'https://grow.invalid');url.searchParams.delete('refresh');url.searchParams.sort();return url.pathname+url.search}
-const TOKEN_KEY='grow-room-owner-token-v1';
+let authorized=false;
 
 async function api(path,options={}){
  const headers={'content-type':'application/json',...(options.headers||{})};
- const token=localStorage.getItem(TOKEN_KEY);
- if(token)headers.authorization=`Bearer ${token}`;
+
  const method=(options.method||'GET').toUpperCase();
  const request=async()=>{
  const finish=method==='GET'?beginRead(path.split('?')[0]):()=>{};
  try{
  const response=await fetch(path,{...options,headers});
  const body=await response.json().catch(()=>({}));
+ if(response.status===401&&path!=='/api/auth')clearOwnerToken();
  if(!response.ok){const error=new Error(body.error||'เชื่อมต่อไม่สำเร็จ');error.status=response.status;throw error}
  return body;
  }finally{finish()}
@@ -30,9 +30,11 @@ async function api(path,options={}){
 }
 const query=params=>{const value=new URLSearchParams();Object.entries(params||{}).forEach(([key,item])=>{if(item!==undefined&&item!==null&&item!=='')value.set(key,String(item))});const text=value.toString();return text?'?'+text:''};
 
-export const hasOwnerToken=()=>Boolean(localStorage.getItem(TOKEN_KEY));
-export const clearOwnerToken=()=>localStorage.removeItem(TOKEN_KEY);
-export async function verifyOwner(code){const result=await api('/api/auth',{method:'POST',body:JSON.stringify({code})});localStorage.setItem(TOKEN_KEY,result.token);return result}
+export const hasOwnerToken=()=>authorized;
+export const clearOwnerToken=()=>{authorized=false;reads.invalidate('');if(typeof window!=='undefined')window.dispatchEvent(new Event('grow-session-ended'))};
+export async function verifyOwner(code){const result=await api('/api/auth',{method:'POST',body:JSON.stringify({code})});authorized=true;return result}
+export async function verifySession(){const result=await api('/api/session?refresh=1');authorized=true;return result}
+export async function lockSite(){await api('/api/logout',{method:'POST'});clearOwnerToken()}
 export async function loadActivities(options={}){return api('/api/activities'+query(options))}
 export async function loadDashboard(refresh=false){return api('/api/dashboard'+query({refresh:refresh?1:''}))}
 export async function createActivity(item){return api('/api/activities',{method:'POST',body:JSON.stringify(item)})}

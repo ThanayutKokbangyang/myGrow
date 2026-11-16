@@ -1,5 +1,6 @@
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
+import {AccessGate} from "./access-gate";
 import "./styles.css";
 import {PageLoading,usePendingRead} from "./page-loading";
 import {contains,roomGeometry} from "./room-geometry";
@@ -13,6 +14,7 @@ const Calendar = lazy(() => import("./calendar").then(module => ({default: modul
 const SummaryLibrary = lazy(() => import("./summaries").then(module => ({default: module.SummaryLibrary})));
 import {PixelIcon, PomodoroCard, FOCUS_SECONDS, BREAK_SECONDS} from "./pomodoro-card";
 import {
+  lockSite,
   clearOwnerToken,
   createActivity,
   deleteActivity,
@@ -459,6 +461,7 @@ function App() {
           </button>
         ))}
         <button className="soundToggle" title={soundEnabled ? "ปิดเสียงเกม" : "เปิดเสียงเกม"} aria-label={soundEnabled ? "ปิดเสียงเกม" : "เปิดเสียงเกม"} aria-pressed={soundEnabled} onClick={() => {const next=!soundEnabled;setSoundEnabled(next);try{localStorage.setItem("grow-sound",next?"on":"off")}catch{}}}>{soundEnabled?"♪":"♫"}<span className="navLabel">{soundEnabled?"เสียงเปิด":"เสียงปิด"}</span></button>
+        <button title="ล็อกเว็บ" aria-label="ล็อกเว็บ" onClick={()=>lockSite().catch(error=>notify(error.message))}><PixelIcon name="close"/><span className="navLabel">ล็อกเว็บ</span></button>
         <div className="asideBottom">
           <div className="avatarMini">
             <img src="/tae-avatar.webp" alt="" />
@@ -1277,7 +1280,7 @@ function Progress({ summary, xp }) {
     </section>
   );
 }
-createRoot(document.getElementById("root")).render(<App />);
+createRoot(document.getElementById("root")).render(<AccessGate><App /></AccessGate>);
 
 // Installed-app support: registering the service worker is what lets iOS keep
 // Grow Room on the home screen and open it offline. Dev builds skip it so the

@@ -1,14 +1,16 @@
 export const config = { runtime: 'edge' };
 
-const json = (data, status = 200) =>
+const json = (data, status = 200, extraHeaders = {}) =>
   new Response(JSON.stringify(data), {
     status,
     headers: {
       'content-type': 'application/json; charset=utf-8',
       'cache-control': 'no-store',
+      ...extraHeaders,
     },
   });
 
+const sessionCookie=(token,clear=false)=>`__Host-grow-session=${token}; Path=/; HttpOnly; Secure; SameSite=Strict${clear?'; Max-Age=0':''}`;
 const textEncoder = new TextEncoder();
 
 const base64url = (bytes) =>
@@ -39,13 +41,13 @@ async function sign(payload, secret) {
 
 async function issueToken(secret) {
   const payload = base64url(
-    textEncoder.encode(JSON.stringify({ sub: 'tae', exp: Date.now() + 180 * 24 * 60 * 60 * 1000 })),
+    textEncoder.encode(JSON.stringify({ sub: 'tae', audience: 'private-site-v2', exp: Date.now() + 12 * 60 * 60 * 1000 })),
   );
   return `${payload}.${await sign(payload, secret)}`;
 }
 
 async function validToken(request) {
-  const token = (request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
+  const token = (request.headers.get('cookie') || '').split(';').map(value=>value.trim()).find(value=>value.startsWith('__Host-grow-session='))?.slice('__Host-grow-session='.length)||'';
   const [payload, signature] = token.split('.');
   const secret = process.env.SESSION_SECRET;
   if (!payload || !signature || !secret || !same(signature, await sign(payload, secret))) return false;
@@ -55,7 +57,7 @@ async function validToken(request) {
         decode64(payload.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((payload.length + 3) % 4)),
       ),
     );
-    return data.sub === 'tae' && data.exp > Date.now();
+    return data.sub === 'tae' && data.audience === 'private-site-v2' && Number.isFinite(data.exp) && data.exp > Date.now();
   } catch {
     return false;
   }
@@ -81,23 +83,17 @@ export default async function handler(request) {
   const url = new URL(request.url);
   const path = url.pathname;
 
-  if (path === '/api/status') {
-    return json({
-      configured: Boolean(process.env.GOOGLE_APPS_SCRIPT_URL),
-      sheetId: process.env.GOOGLE_SHEET_ID || null,
-    });
-  }
-
+  if (!['GET','HEAD'].includes(request.method) && ((request.headers.get('origin') && request.headers.get('origin') !== url.origin) || request.headers.get('sec-fetch-site') === 'cross-site')) return json({error:'ไม่อนุญาตคำขอจากเว็บไซต์อื่น'},403);
   if (path === '/api/auth' && request.method === 'POST') {
     const body = await request.json().catch(() => ({}));
-    if (!process.env.TAE_ACCESS_CODE || !process.env.SESSION_SECRET) {
-      return json({ error: 'ระบบยืนยันตัวยังไม่ได้ตั้งค่า' }, 503);
-    }
-    if (!same(String(body.code || ''), String(process.env.TAE_ACCESS_CODE))) {
-      return json({ error: 'รหัสยืนยันไม่ถูกต้อง' }, 401);
-    }
-    return json({ ok: true, token: await issueToken(process.env.SESSION_SECRET) });
+    if (!process.env.TAE_ACCESS_CODE || !process.env.SESSION_SECRET) return json({error:'ระบบยืนยันตัวยังไม่ได้ตั้งค่า'},503);
+    if (!same(String(body?.code || ''), String(process.env.TAE_ACCESS_CODE))) return json({error:'รหัสเข้าเว็บไม่ถูกต้อง'},401);
+    return json({ok:true},200,{'set-cookie':sessionCookie(await issueToken(process.env.SESSION_SECRET))});
   }
+  if (path === '/api/logout' && request.method === 'POST') return json({ok:true},200,{'set-cookie':sessionCookie('',true)});
+  if (!(await validToken(request))) return json({error:'กรุณาใส่รหัสก่อนเข้าใช้งาน'},401);
+  if (path === '/api/session' && request.method === 'GET') return json({ok:true});
+  if (path === '/api/status') return json({configured:Boolean(process.env.GOOGLE_APPS_SCRIPT_URL)});
 
   if (url.pathname === '/api/calendar' && ['GET','POST'].includes(request.method)) {
     if (request.method === 'POST' && !(await validToken(request))) return json({error:'กรุณายืนยันว่าเป็นเท่ก่อนบันทึก'},401);
