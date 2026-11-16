@@ -17,8 +17,6 @@ function doPost(e) {
     if (body.action === 'goals_list' || body.action === 'goals_apply') return response_(goals_(body));
     if (body.action === 'calendar_list' || body.action === 'calendar_apply') return response_(calendar_(body));
     if (body.action === 'todos_list' || body.action === 'todos_apply') return response_(todos_(body));
-    if (body.action === 'learning_stats') return response_(learningStats_(body));
-    if (body.action === 'update') return response_(updateActivity_(body));
     if (body.action === 'dashboard_summary') return response_(dashboardSummary_(body));
     if (body.action === 'list') return response_(listActivities_(body));
     if (body.action === 'append') return response_({ ok: true, item: appendActivity_(body.item || {}) });
@@ -46,8 +44,7 @@ function page_(items, body, defaultSize, maxSize) {
 }
 
 function clearDashboardCache_() {
-  const cache=CacheService.getScriptCache(),today=activityDay_(new Date());
-  cache.removeAll(['dashboard-summary-v2','learning-stats-7-'+today,'learning-stats-30-'+today]);
+  CacheService.getScriptCache().remove('dashboard-summary-v2');
 }
 
 function sheet_() {
@@ -73,11 +70,19 @@ function activityRows_() {
 function listActivities_(body) {
   const skill = String(body && body.skill || '').trim().toLowerCase();
   const query = String(body && body.query || '').trim().toLowerCase().slice(0, 120);
-  const start=String(body.start||''),end=String(body.end||'');
-  if ((start&&!/^\d{4}-\d{2}-\d{2}$/.test(start))||(end&&!/^\d{4}-\d{2}-\d{2}$/.test(end))||(start&&end&&start>end))throw new Error('\u0e0a\u0e48\u0e27\u0e07\u0e27\u0e31\u0e19\u0e17\u0e35\u0e48\u0e44\u0e21\u0e48\u0e16\u0e39\u0e01\u0e15\u0e49\u0e2d\u0e07');
-  const items = activityRows_().sort((a, b) => new Date(b.date).getTime()-new Date(a.date).getTime() || b.id.localeCompare(a.id)).filter(item => {
-    const day=activityDay_(item.date);
-    if((start&&day<start)||(end&&day>end))return false;
+  if ((!skill || skill === 'all') && !query) {
+    const sheet = sheet_();
+    const total = Math.max(0, sheet.getLastRow() - 1);
+    const pageSize = int_(body && body.pageSize, 40, 1, 100);
+    const pages = Math.max(1, Math.ceil(total / pageSize));
+    const current = Math.min(int_(body && body.page, 1, 1, 1000000), pages);
+    const endRow = sheet.getLastRow() - (current - 1) * pageSize;
+    const startRow = Math.max(2, endRow - pageSize + 1);
+    const count = total ? endRow - startRow + 1 : 0;
+    const items = count ? sheet.getRange(startRow, 1, count, HEADERS.length).getValues().reverse().filter(row=>String(row[0]||'').trim()).map(rowToActivity_) : [];
+    return {ok:true,items:items,page:current,pageSize:pageSize,total:total,pages:pages};
+  }
+  const items = activityRows_().sort((a, b) => String(b.date).localeCompare(String(a.date))).filter(item => {
     if (skill && skill !== 'all' && item.skill !== skill) return false;
     if (!query) return true;
     return [item.topic,item.learned,item.problem,item.next,item.skill].join(' ').toLowerCase().indexOf(query) >= 0;
@@ -90,109 +95,65 @@ function listActivities_(body) {
 function dashboardSummary_(body) {
   const cache = CacheService.getScriptCache();
   const cached = cache.get('dashboard-summary-v2');
-  if (cached && !(body && body.refresh) && JSON.parse(cached).today===activityDay_(new Date())) return JSON.parse(cached);
+  if (cached && !(body && body.refresh)) return JSON.parse(cached);
   const activities = activityRows_();
   const now = new Date();
   const today = Utilities.formatDate(new Date(now.getTime() - (Number(Utilities.formatDate(now, TZ_, 'H')) < DAY_START_HOUR_ ? 86400000 : 0)), TZ_, 'yyyy-MM-dd');
   const totals = { english:0, coding:0, math:0, cognitive:0 };
   const days = {};
-  let gain = 0, minutes = 0, ratedCount=0;
+  let gain = 0, minutes = 0;
   activities.forEach(item => {
     const value = Number(item.minutes) || 0;
     minutes += value;
     if (Object.prototype.hasOwnProperty.call(totals, item.skill)) totals[item.skill] += value;
-    if(item.before>0&&item.after>0){gain += Number(item.after)-Number(item.before);ratedCount++;}
-    const key = activityDay_(item.date);
+    gain += (Number(item.after) || 0) - (Number(item.before) || 0);
+    const key = Utilities.formatDate(new Date(item.date), TZ_, 'yyyy-MM-dd');
     days[key] = true;
   });
   let streak = 0;
   const cursor = new Date(today + 'T12:00:00+07:00');
   if (!days[today]) cursor.setDate(cursor.getDate() - 1);
   while (days[Utilities.formatDate(cursor, TZ_, 'yyyy-MM-dd')]) { streak++; cursor.setDate(cursor.getDate() - 1); }
-  const result = {ok:true,today:today,todayItems:activities.filter(item=>activityDay_(item.date)===today),summary:{total:activities.length,minutes:minutes,gain:ratedCount?Number((gain/ratedCount).toFixed(1)):0,activeDays:Object.keys(days).length,streak:streak,xp:minutes*2,totals:totals}};
+  const result = {ok:true,today:today,todayItems:activities.filter(item=>Utilities.formatDate(new Date(item.date),TZ_,'yyyy-MM-dd')===today),summary:{total:activities.length,minutes:minutes,gain:activities.length?Number((gain/activities.length).toFixed(1)):0,activeDays:Object.keys(days).length,streak:streak,xp:minutes*2,totals:totals}};
   cache.put('dashboard-summary-v2', JSON.stringify(result), 300);
   return result;
 }
 
-// All learning reports share the 05:00 Asia/Bangkok day boundary.
-function activityDay_(value) {
-  const date=new Date(value);
-  if(isNaN(date.getTime()))return '';
-  return Utilities.formatDate(new Date(date.getTime()-5*3600000),'Asia/Bangkok','yyyy-MM-dd');
-}
-function shiftActivityDay_(key,days) {
-  const date=new Date(key+'T12:00:00Z');date.setUTCDate(date.getUTCDate()+days);
-  return Utilities.formatDate(date,'UTC','yyyy-MM-dd');
-}
-function activityInput_(input) {
-  if(!input||typeof input!=='object')throw new Error('ข้อมูลกิจกรรมไม่ถูกต้อง');
-  const text=(key,max)=>{const value=String(input[key]==null?'':input[key]).trim();if(value.length>max)throw new Error('ข้อความยาวเกินไป');return value;};
-  const item={id:text('id',100),date:input.date||new Date().toISOString(),skill:text('skill',20),topic:text('topic',180),minutes:Number(input.minutes),before:Number(input.before||0),after:Number(input.after||0),difficulty:Number(input.difficulty||0),learned:text('learned',5000),problem:text('problem',5000),next:text('next',5000)};
-  if(!item.id||!item.topic||['english','coding','math','cognitive'].indexOf(item.skill)<0||!activityDay_(item.date))throw new Error('กรอกทักษะ หัวข้อ และวันที่ให้ครบ');
-  if(!Number.isInteger(item.minutes)||item.minutes<1||item.minutes>1440)throw new Error('เวลาฝึกต้องเป็น 1–1440 นาที');
-  if(['before','after','difficulty'].some(key=>!Number.isInteger(item[key])||item[key]<0||item[key]>5))throw new Error('คะแนนต้องอยู่ระหว่าง 1–5');
-  if((item.before===0)!==(item.after===0))throw new Error('กรุณาประเมินก่อนและหลังให้ครบ หรือเลือกยังไม่ประเมินทั้งสองช่อง');
-  item.date=new Date(item.date).toISOString();return item;
-}
-function activityRow_(item,updatedAt) {
-  const literal=value=>"'"+String(value);
-  return [literal(item.id),literal(item.date),literal(Utilities.formatDate(new Date(item.date),'Asia/Bangkok','dd/MM/yyyy')),literal(item.skill),literal(item.topic),item.minutes,item.before,item.after,item.after-item.before,item.difficulty,literal(item.learned),literal(item.problem),literal(item.next),item.minutes*2,'Tae',literal(updatedAt)];
-}
-function saveActivity_(input,editing,expectedUpdatedAt) {
-  const item=activityInput_(input),lock=LockService.getScriptLock();lock.waitLock(30000);
-  try {
-    const sheet=sheet_(),count=Math.max(0,sheet.getLastRow()-1);
-    const index=count?sheet.getRange(2,1,count,1).getDisplayValues().findIndex(row=>String(row[0])===item.id):-1;
-    let previousStamp=0;
-    if(editing&&index<0)throw new Error('ACTIVITY_NOT_FOUND');
-    if(index>=0){
-      const old=rowToActivity_(sheet.getRange(index+2,1,1,HEADERS.length).getValues()[0]);
-      if(!editing)return old;
-      previousStamp=Date.parse(old.updatedAt)||0;
-      if(String(expectedUpdatedAt==null?'':expectedUpdatedAt)!==old.updatedAt)throw new Error('ACTIVITY_CONFLICT');
-    }
-    const now=new Date(Math.max(Date.now(),previousStamp+1)).toISOString(),row=index<0?sheet.getLastRow()+1:index+2;
-    if(row>sheet.getMaxRows())sheet.insertRowsAfter(sheet.getMaxRows(),100);
-    sheet.getRange(row,1,1,HEADERS.length).setValues([activityRow_(item,now)]);
-    clearDashboardCache_();return Object.assign(item,{updatedAt:now});
-  } finally {lock.releaseLock();}
-}
 function appendActivity_(input) {
-  if(!input.id)input=Object.assign({},input,{id:String(Date.now())});
-  return saveActivity_(input,false);
+  const now = new Date();
+  const item = {
+    id: String(input.id || now.getTime()),
+    date: input.date || now.toISOString(),
+    skill: String(input.skill || 'english'),
+    topic: String(input.topic || '').trim(),
+    minutes: Number(input.minutes || 0),
+    before: Number(input.before || 0),
+    after: Number(input.after || 0),
+    difficulty: Number(input.difficulty || 0),
+    learned: String(input.learned || ''),
+    problem: String(input.problem || ''),
+    next: String(input.next || '')
+  };
+  if (!item.topic || item.minutes < 1) throw new Error('ข้อมูลกิจกรรมไม่ครบ');
+  const row = [item.id,item.date,Utilities.formatDate(new Date(item.date),'Asia/Bangkok','dd/MM/yyyy'),item.skill,item.topic,item.minutes,item.before,item.after,item.after-item.before,item.difficulty,item.learned,item.problem,item.next,item.minutes*2,'Tae',now.toISOString()];
+  sheet_().appendRow(row);
+  clearDashboardCache_();
+  return item;
 }
-function updateActivity_(body) {return {ok:true,item:saveActivity_(body.item,true,body.expectedUpdatedAt)};}
+
 function deleteActivity_(id) {
-  const lock=LockService.getScriptLock();lock.waitLock(30000);
-  try {
-    const sheet=sheet_();if(!id||sheet.getLastRow()<2)return false;
-    const index=sheet.getRange(2,1,sheet.getLastRow()-1,1).getDisplayValues().findIndex(row=>String(row[0])===id);
-    if(index<0)return false;
-    sheet.deleteRow(index+2);clearDashboardCache_();return true;
-  } finally {lock.releaseLock();}
-}
-function learningStats_(body) {
-  const days=Number(body.days)===30?30:7,today=activityDay_(new Date()),cache=CacheService.getScriptCache(),key='learning-stats-'+days+'-'+today;
-  const cached=cache.get(key);if(cached&&!body.refresh)return JSON.parse(cached);
-  const start=shiftActivityDay_(today,1-days),previousStart=shiftActivityDay_(start,-days),previousEnd=shiftActivityDay_(start,-1);
-  const empty=()=>({minutes:0,total:0,activeDays:0,gain:0,totals:{english:0,coding:0,math:0,cognitive:0}});
-  const current=empty(),previous=empty(),active=[new Set(),new Set()],rated=[0,0],daily=[];
-  for(let i=0;i<days;i++)daily.push({day:shiftActivityDay_(start,i),minutes:0,total:0});
-  const dailyIndex=Object.fromEntries(daily.map(item=>[item.day,item]));
-  activityRows_().forEach(item=>{
-    const day=activityDay_(item.date);if(!day||day<previousStart||day>today)return;
-    const index=day>=start?0:1,target=index===0?current:previous;
-    target.minutes+=Number(item.minutes)||0;target.total++;if(item.before>0&&item.after>0){target.gain+=Number(item.after)-Number(item.before);rated[index]++;}active[index].add(day);
-    if(Object.prototype.hasOwnProperty.call(target.totals,item.skill))target.totals[item.skill]+=Number(item.minutes)||0;
-    if(index===0){dailyIndex[day].minutes+=Number(item.minutes)||0;dailyIndex[day].total++;}
-  });
-  [current,previous].forEach((item,index)=>{item.activeDays=active[index].size;item.gain=rated[index]?Number((item.gain/rated[index]).toFixed(1)):0;});
-  const result={ok:true,today:today,days:days,start:start,end:today,previousStart:previousStart,previousEnd:previousEnd,current:current,previous:previous,daily:daily};
-  cache.put(key,JSON.stringify(result),300);return result;
+  const sheet = sheet_();
+  if (!id || sheet.getLastRow() < 2) return false;
+  const ids = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getDisplayValues();
+  const index = ids.findIndex(row => row[0] === id);
+  if (index < 0) return false;
+  sheet.deleteRow(index + 2);
+  clearDashboardCache_();
+  return true;
 }
 
 function rowToActivity_(row) {
-  return { id:String(row[0]),date:String(row[1]),skill:String(row[3]),topic:String(row[4]),minutes:Number(row[5]),before:Number(row[6]),after:Number(row[7]),difficulty:Number(row[9]),learned:String(row[10]||''),problem:String(row[11]||''),next:String(row[12]||''),updatedAt:String(row[15]||'') };
+  return { id:String(row[0]),date:String(row[1]),skill:String(row[3]),topic:String(row[4]),minutes:Number(row[5]),before:Number(row[6]),after:Number(row[7]),difficulty:Number(row[9]),learned:String(row[10]||''),problem:String(row[11]||''),next:String(row[12]||'') };
 }
 
 function response_(payload) {

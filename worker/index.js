@@ -116,10 +116,6 @@ async function handleApi(request, env, url) {
   if (url.pathname === '/api/session' && request.method === 'GET') return json({ok:true});
   if (url.pathname === '/api/status') return json({configured:Boolean(env.GOOGLE_APPS_SCRIPT_URL)});
 
-  if (url.pathname === '/api/learning-stats' && request.method === 'GET') {
-    try{return json(await sheetRequest(env, {action:'learning_stats',days:url.searchParams.get('days'),refresh:url.searchParams.get('refresh')==='1'}));}
-    catch(error){return json({error:error.message==='ACTION_INVALID'?'กรุณาอัปเดต Apps Script เวอร์ชันสถิติการฝึกก่อน':error.message},503);}
-  }
   if (url.pathname === '/api/kanban' && ['GET','POST'].includes(request.method)) {
     const body=request.method==='POST'?await request.json().catch(()=>null):null;
     if(request.method==='POST' && (!Array.isArray(body?.changes)||!body.changes.length||body.changes.length>750))return json({error:'ข้อมูลบอร์ดไม่ถูกต้อง'},400);
@@ -165,7 +161,7 @@ async function handleApi(request, env, url) {
   }
   if (url.pathname === "/api/activities" && request.method === "GET") {
     try {
-      return json(await sheetRequest(env, { action:"list", page:url.searchParams.get('page'), pageSize:url.searchParams.get('pageSize'), skill:url.searchParams.get('skill'), query:url.searchParams.get('query'),start:url.searchParams.get('start'),end:url.searchParams.get('end') }));
+      return json(await sheetRequest(env, { action:"list", page:url.searchParams.get('page'), pageSize:url.searchParams.get('pageSize'), skill:url.searchParams.get('skill'), query:url.searchParams.get('query') }));
     } catch (error) {
       return json({ error: error.message }, 503);
     }
@@ -178,11 +174,6 @@ async function handleApi(request, env, url) {
     if (!(await validToken(request, env)))
       return json({ error: "กรุณายืนยันว่าเป็นเท่ก่อนบันทึก" }, 401);
     const item = await request.json().catch(() => null);
-    if(item?._action==='update'){
-      if(!item.item?.id)return json({error:'ไม่พบกิจกรรมที่จะปรับปรุง'},400);
-      try{return json(await sheetRequest(env, {action:'update',item:item.item,expectedUpdatedAt:item.item.updatedAt}));}
-      catch(error){return json({error:error.message==='ACTION_INVALID'?'กรุณาอัปเดต Apps Script เวอร์ชันบันทึกการฝึกก่อน':error.message==='ACTIVITY_CONFLICT'?'รายการถูกแก้ไขแล้ว กรุณาโหลดใหม่ก่อนแก้ไขอีกครั้ง':error.message==='ACTIVITY_NOT_FOUND'?'ไม่พบกิจกรรมนี้แล้ว':error.message},error.message==='ACTIVITY_CONFLICT'?409:error.message==='ACTIVITY_NOT_FOUND'?404:503);}
-    }
     if (!item?.topic) return json({ error: "กรุณาระบุหัวข้อที่ฝึก" }, 400);
     try {
       return json(await sheetRequest(env, { action: "append", item }));

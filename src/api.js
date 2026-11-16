@@ -25,7 +25,7 @@ async function api(path,options={}){
  }
  const result=await request();
  reads.invalidate(path.split('?')[0]);
- if(path.startsWith('/api/activities')){reads.invalidate('/api/dashboard');reads.invalidate('/api/learning-stats')}
+ if(path.startsWith('/api/activities'))reads.invalidate('/api/dashboard');
  return result;
 }
 const query=params=>{const value=new URLSearchParams();Object.entries(params||{}).forEach(([key,item])=>{if(item!==undefined&&item!==null&&item!=='')value.set(key,String(item))});const text=value.toString();return text?'?'+text:''};
@@ -59,6 +59,3 @@ export async function deleteSummary(id){return api('/api/summaries',{method:'POS
 export const getCachedKanban=()=>reads.peek('/api/kanban');
 export async function loadKanban(refresh=false){return api('/api/kanban'+query({refresh:refresh?1:''}))}
 export async function applyKanban(changes){return api('/api/kanban',{method:'POST',body:JSON.stringify({changes})})}
-
-export async function updateActivity(item){return api('/api/activities',{method:'POST',body:JSON.stringify({_action:'update',item})})}
-export async function loadLearningStats(days=7,refresh=false){return api('/api/learning-stats'+query({days,refresh:refresh?1:''}))}

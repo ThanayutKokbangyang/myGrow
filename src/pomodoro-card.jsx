@@ -26,7 +26,7 @@ export function PomodoroCard({timer,setTimer,running,setRunning,sessions,phase='
  return <div className={`card timer ${className}`}>
   <div className="metricTitle">
    <b>Pomodoro</b>
-   <span className="metricTools"><strong title="รอบที่ครบเวลาบนอุปกรณ์นี้">{sessions} รอบ</strong>{tools}</span>
+   <span className="metricTools"><strong>{sessions}/6</strong>{tools}</span>
   </div>
   <div className={`timerBody${scene?' withScene':''}`}>
    {scene&&<PomodoroScene mode={mode}/>}
@@ -38,16 +38,16 @@ export function PomodoroCard({timer,setTimer,running,setRunning,sessions,phase='
     <strong>
      {String(Math.floor(timer/60)).padStart(2,'0')}:{String(timer%60).padStart(2,'0')}
     </strong>
-    <small>{phase==='break'?'ช่วงพัก':'ช่วงโฟกัส'}</small>
+    <small>{phase==='break'?'BREAK TIME':'FOCUS SESSION'}</small>
    </div>
    <div className="timerActions">
     <button className={running?'timerStop':'timerStart'} onClick={()=>setRunning(!running)}>
      <PixelIcon name={running?'pause':'play'}/>
-     {running?'พักก่อน':'เริ่มจับเวลา'}
+     {running?'Pause':'Start'}
     </button>
     <button className="timerReset" onClick={reset} aria-label="เริ่ม Pomodoro ใหม่">
      <PixelIcon name="reset"/>
-     เริ่มใหม่
+     Reset
     </button>
    </div>
   </div>
