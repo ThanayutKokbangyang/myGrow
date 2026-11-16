@@ -7,9 +7,9 @@ import React,{useEffect,useRef,useState} from 'react';
 //   stop  : exhale, idle, check watch, idle with bubble -- all four loop
 // Playing all four on repeat made the character sit down again every cycle.
 const SHEETS={
- study:{src:'/focus/focus-study.png',label:'กำลังตั้งใจเรียนอยู่'},
- sleep:{src:'/focus/break-sleep.png',label:'พักผ่อนสักครู่'},
- stopped:{src:'/focus/timer-stopped.png',label:'หยุดอยู่'},
+ study:{src:'/focus/focus-study.webp',label:'กำลังตั้งใจเรียนอยู่'},
+ sleep:{src:'/focus/break-sleep.webp',label:'พักผ่อนสักครู่'},
+ stopped:{src:'/focus/timer-stopped.webp',label:'หยุดอยู่'},
 };
 const WALK_MS=1100;
 const prefersReduced=()=>typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches;

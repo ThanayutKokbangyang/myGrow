@@ -1,17 +1,20 @@
-const json = (data, status = 200) =>
+const json = (data, status = 200, extraHeaders = {}) =>
   new Response(JSON.stringify(data), {
     status,
     headers: {
       "content-type": "application/json; charset=utf-8",
       "cache-control": "no-store",
+      ...extraHeaders,
     },
   });
+const sessionCookie=(token,clear=false)=>`__Host-grow-session=${token}; Path=/; HttpOnly; Secure; SameSite=Strict${clear?'; Max-Age=0':''}`;
 const textEncoder = new TextEncoder();
 const mime = {
   html: "text/html; charset=utf-8",
   js: "text/javascript; charset=utf-8",
   css: "text/css; charset=utf-8",
   png: "image/png",
+  webp: "image/webp",
   jpg: "image/jpeg",
   jpeg: "image/jpeg",
   svg: "image/svg+xml",
@@ -52,17 +55,15 @@ async function issueToken(secret) {
     textEncoder.encode(
       JSON.stringify({
         sub: "tae",
-        exp: Date.now() + 180 * 24 * 60 * 60 * 1000,
+        audience: "private-site-v2",
+        exp: Date.now() + 12 * 60 * 60 * 1000,
       }),
     ),
   );
   return `${payload}.${await sign(payload, secret)}`;
 }
 async function validToken(request, env) {
-  const token = (request.headers.get("authorization") || "").replace(
-    /^Bearer\s+/i,
-    "",
-  );
+  const token = (request.headers.get('cookie') || '').split(';').map(value=>value.trim()).find(value=>value.startsWith('__Host-grow-session='))?.slice('__Host-grow-session='.length)||'';
   const [payload, signature] = token.split(".");
   if (
     !payload ||
@@ -80,7 +81,7 @@ async function validToken(request, env) {
         ),
       ),
     );
-    return data.sub === "tae" && data.exp > Date.now();
+    return data.sub === "tae" && data.audience === "private-site-v2" && Number.isFinite(data.exp) && data.exp > Date.now();
   } catch {
     return false;
   }
@@ -103,28 +104,18 @@ async function sheetRequest(env, payload) {
   return result;
 }
 async function handleApi(request, env, url) {
-  if (url.pathname === "/api/status")
-    return json({
-      configured: Boolean(env.GOOGLE_APPS_SCRIPT_URL),
-      sheetId: env.GOOGLE_SHEET_ID || null,
-    });
-  if (url.pathname === "/api/auth" && request.method === "POST") {
+  if (!['GET','HEAD'].includes(request.method) && ((request.headers.get('origin') && request.headers.get('origin') !== url.origin) || request.headers.get('sec-fetch-site') === 'cross-site')) return json({error:'ไม่อนุญาตคำขอจากเว็บไซต์อื่น'},403);
+  if (url.pathname === '/api/auth' && request.method === 'POST') {
     const body = await request.json().catch(() => ({}));
-    if (!env.TAE_ACCESS_CODE || !env.SESSION_SECRET)
-      return json({ error: "ระบบยืนยันตัวยังไม่ได้ตั้งค่า" }, 503);
-    if (!same(String(body.code || ""), String(env.TAE_ACCESS_CODE)))
-      return json({ error: "รหัสยืนยันไม่ถูกต้อง" }, 401);
-    return json({ ok: true, token: await issueToken(env.SESSION_SECRET) });
+    if (!env.TAE_ACCESS_CODE || !env.SESSION_SECRET) return json({error:'ระบบยืนยันตัวยังไม่ได้ตั้งค่า'},503);
+    if (!same(String(body?.code || ''), String(env.TAE_ACCESS_CODE))) return json({error:'รหัสเข้าเว็บไม่ถูกต้อง'},401);
+    return json({ok:true},200,{'set-cookie':sessionCookie(await issueToken(env.SESSION_SECRET))});
   }
-  if (url.pathname === '/api/flashcards' && ['GET','POST'].includes(request.method)) {
-    if(request.method==='POST' && !(await validToken(request, env)))return json({error:'กรุณายืนยันว่าเป็นเท่ก่อนบันทึก'},401);
-    const body=request.method==='POST'?await request.json().catch(()=>null):null;
-    const action=request.method==='GET'?'list':body?.action;
-    if(!['list','upsert','delete','review','import','uploadImage'].includes(action))return json({error:'ไม่พบการทำงานนี้'},400);
-    if(request.method==='POST'&&action==='list')return json({error:'ใช้ GET เพื่ออ่านคำศัพท์'},400);
-    try{return json(await sheetRequest(env, {action:'cards_'+action,card:body?.card,cards:body?.cards,id:body?.id,remembered:body?.remembered,reviewId:body?.reviewId,image:body?.image,mode:url.searchParams.get('mode'),page:url.searchParams.get('page'),pageSize:url.searchParams.get('pageSize'),query:url.searchParams.get('query'),tag:url.searchParams.get('tag'),day:url.searchParams.get('day')}));}
-    catch(error){return json({error:error.message==='ACTION_INVALID'?'กรุณาอัปเดต Apps Script ให้รองรับ Vocabulary ก่อน':error.message},503);}
-  }
+  if (url.pathname === '/api/logout' && request.method === 'POST') return json({ok:true},200,{'set-cookie':sessionCookie('',true)});
+  if (!(await validToken(request,env))) return json({error:'กรุณาใส่รหัสก่อนเข้าใช้งาน'},401);
+  if (url.pathname === '/api/session' && request.method === 'GET') return json({ok:true});
+  if (url.pathname === '/api/status') return json({configured:Boolean(env.GOOGLE_APPS_SCRIPT_URL)});
+
   if (url.pathname === '/api/calendar' && ['GET','POST'].includes(request.method)) {
     if (request.method === 'POST' && !(await validToken(request, env))) return json({error:'กรุณายืนยันว่าเป็นเท่ก่อนบันทึก'},401);
     const body=request.method==='POST'?await request.json().catch(()=>null):null;

@@ -13,7 +13,7 @@ function fetchWins(force,options){
  const key=`${options.start||''}:${options.end||''}`;
  if(store.inflight&&store.inflightKey===key)return store.inflight;
  if(!force&&store.items&&store.key===key&&Date.now()-store.at<FRESH_MS)return Promise.resolve({items:store.items,summary:store.summary});
- store.inflightKey=key;store.inflight=loadWins({...options,pageSize:300,summary:1})
+ store.inflightKey=key;store.inflight=loadWins({...options,pageSize:300,summary:1,refresh:force?1:undefined})
   .then(result=>{const items=normalizeWins(result.items||[]);rememberWins(items);store.key=key;store.summary=result.summary||null;return {items,summary:store.summary}})
   .finally(()=>{if(store.inflightKey===key){store.inflight=null;store.inflightKey=''}});
  return store.inflight;

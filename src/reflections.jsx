@@ -1,7 +1,7 @@
 import React,{useEffect,useMemo,useState} from 'react';
 import './reflections.css';
 import {applyTodos,getCachedTodos,loadTodos} from './api';
-import reflectionArt from './assets/tae-reflection-night.png';
+import reflectionArt from './assets/tae-reflection-night.webp';
 import {dayKey,parseDay} from './day';
 
 const newId=()=>`reflection-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;

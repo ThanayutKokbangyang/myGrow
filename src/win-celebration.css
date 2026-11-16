@@ -3,7 +3,7 @@
 .winVictoryClose{position:absolute;right:8px;top:8px;z-index:2;width:36px;height:36px;padding:0;font-family:inherit;font-size:26px;line-height:1;color:#25364b;background:#f5e2ad;border:2px solid #25364b;cursor:pointer}
 .winVictoryStage{position:relative;height:228px;overflow:hidden;background:linear-gradient(#213553,#345873);border:2px solid #25364b;margin:20px 0}
 .winVictoryHero{position:absolute;left:50%;bottom:17px;width:94.2px;height:140.4px;margin-left:-47.1px;animation:winVictoryHop .72s steps(6,end) 5}
-.winVictorySprite{display:block;width:94.2px;height:140.4px;background:url('/growth/tae-jump-atlas.png') -141.3px -211.2px / 376.2px 376.2px no-repeat;image-rendering:pixelated}
+.winVictorySprite{display:block;width:94.2px;height:140.4px;background:url('/growth/tae-jump-atlas.webp') -141.3px -211.2px / 376.2px 376.2px no-repeat;image-rendering:pixelated}
 .winVictoryCup{position:absolute;width:60px;height:60px;left:17px;top:-39px;image-rendering:pixelated;filter:drop-shadow(0 0 8px #ffdc6277)}
 .winVictoryGround{position:absolute;bottom:0;left:0;right:0;height:12px;background:#809f69;border-top:4px solid #c5d582}
 .winVictoryShadow{position:absolute;bottom:14px;left:calc(50% - 42px);width:84px;height:8px;background:#152b42}
