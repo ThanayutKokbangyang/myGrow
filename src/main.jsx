@@ -73,8 +73,35 @@ const EMPTY = {
 // as the day before rather than starting a fresh one.
 const dateKey = (d) => dayKey(new Date(d));
 const dateLabel = (key) => formatDayTH(key, { day: "numeric", month: "short", year: "numeric" });
+const ROOM_LIMITS = { minX: 3, maxX: 97, minY: 12, maxY: 94 };
+const WALK_MS_PER_UNIT = 46;
+const WALK_KEYS = new Map([
+  ["KeyW", "up"], ["ArrowUp", "up"],
+  ["KeyA", "left"], ["ArrowLeft", "left"],
+  ["KeyS", "down"], ["ArrowDown", "down"],
+  ["KeyD", "right"], ["ArrowRight", "right"],
+]);
+const WALK_VECTORS = {
+  up: [0, -1], left: [-1, 0], down: [0, 1], right: [1, 0],
+};
+const EDITABLE_CONTROL = "input, textarea, select, [role='textbox'], [role='combobox'], [role='slider']";
+
+function clampRoomPoint({ x, y }) {
+  const { minX, maxX, minY, maxY } = ROOM_LIMITS;
+  return {
+    x: Math.max(minX, Math.min(maxX, x)),
+    y: Math.max(minY, Math.min(maxY, y)),
+  };
+}
+
+function paintCharacter(room, character, { x, y }) {
+  if (!room || !character) return;
+  character.style.transform = `translate3d(${room.clientWidth * x / 100}px,${room.clientHeight * y / 100}px,0) translate(-50%,-50%)`;
+  character.style.setProperty("--depth-scale", .84 + y * .003);
+}
+
 function findWalkPath(start,end,hitsTable){
-  const step=1,minX=3,maxX=97,minY=12,maxY=94;
+  const step=1,{minX,maxX,minY,maxY}=ROOM_LIMITS;
   const cols=Math.floor((maxX-minX)/step)+1,rows=Math.floor((maxY-minY)/step)+1;
   
   const cell=p=>({
@@ -166,6 +193,7 @@ function App() {
   const roomRef = useRef(null);
   const characterRef = useRef(null);
   const walkAnimation = useRef(null);
+  const stopKeyboardWalk = useRef(null);
   const posRef = useRef(pos);
   const directionRef = useRef(direction);
   const celebrateTimer = useRef(null);
@@ -256,6 +284,93 @@ function App() {
     },
     [],
   );
+  const keyboardWalkEnabled = view === "today" && !modal && !verify && !stage;
+  useEffect(() => {
+    if (!keyboardWalkEnabled) return;
+
+    const pressed = new Set();
+    let frame = null;
+    let lastFrame = 0;
+
+    function stop() {
+      pressed.clear();
+      if (frame === null) return;
+      cancelAnimationFrame(frame);
+      frame = null;
+      setPos(posRef.current);
+      setWalking(false);
+    }
+
+    function tick(now) {
+      const room = roomRef.current;
+      if (!room || document.hidden) {
+        stop();
+        return;
+      }
+
+      const facing = WALK_KEYS.get([...pressed].at(-1));
+      const [dx, dy] = WALK_VECTORS[facing];
+      const distance = Math.min(32, now - lastFrame) / WALK_MS_PER_UNIT;
+      const current = posRef.current;
+      const next = clampRoomPoint({ x: current.x + dx * distance, y: current.y + dy * distance });
+      const moved = (next.x !== current.x || next.y !== current.y)
+        && !roomGeometry(room, characterRef.current).some(desk => contains(desk.collision, next));
+
+      if (directionRef.current !== facing) {
+        directionRef.current = facing;
+        setDirection(facing);
+      }
+      if (moved) {
+        posRef.current = next;
+        paintCharacter(room, characterRef.current, next);
+      }
+      setWalking(moved);
+      lastFrame = now;
+      frame = requestAnimationFrame(tick);
+    }
+
+    function isEditing(target) {
+      return target instanceof HTMLElement && (target.isContentEditable || target.closest(EDITABLE_CONTROL));
+    }
+
+    function keyDown(event) {
+      if (!WALK_KEYS.has(event.code) || event.defaultPrevented || event.isComposing
+        || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey || isEditing(event.target)) return;
+
+      event.preventDefault();
+      if (event.repeat) return;
+      pressed.add(event.code);
+      if (frame === null) {
+        cancelAnimationFrame(walkAnimation.current);
+        lastFrame = performance.now() - 16;
+        tick(performance.now());
+      }
+    }
+
+    function keyUp(event) {
+      if (pressed.delete(event.code) && pressed.size === 0) stop();
+    }
+
+    function focusIn(event) {
+      if (isEditing(event.target)) stop();
+    }
+
+    stopKeyboardWalk.current = stop;
+    window.addEventListener("keydown", keyDown);
+    window.addEventListener("keyup", keyUp);
+    window.addEventListener("blur", stop);
+    document.addEventListener("visibilitychange", stop);
+    document.addEventListener("focusin", focusIn);
+    return () => {
+      stop();
+      stopKeyboardWalk.current = null;
+      window.removeEventListener("keydown", keyDown);
+      window.removeEventListener("keyup", keyUp);
+      window.removeEventListener("blur", stop);
+      document.removeEventListener("visibilitychange", stop);
+      document.removeEventListener("focusin", focusIn);
+    };
+  }, [keyboardWalkEnabled]);
   const today = dateKey(new Date());
   const todayLogs = logs.filter((x) => dateKey(x.date) === today);
   const minutes = todayLogs.reduce((a, b) => a + Number(b.minutes), 0);
@@ -269,6 +384,7 @@ function App() {
     setTimeout(() => setToast(""), 2400);
   };
   function moveTo(next,done){
+  stopKeyboardWalk.current?.();
   cancelAnimationFrame(walkAnimation.current);
   setWalking(false);
   const geometry=roomGeometry(roomRef.current,characterRef.current);
@@ -278,6 +394,7 @@ function App() {
   let index=0;
   const nextSegment=()=>{
     if(index>=route.length){
+      posRef.current = next;
       setPos(next);
       setWalking(false);
       
@@ -307,7 +424,7 @@ function App() {
     setDirection(segmentDirection);
     
     
-    const duration=Math.max(180,distance*46);
+    const duration=Math.max(180,distance*WALK_MS_PER_UNIT);
     const started=performance.now();
     
     const tick=now=>{
@@ -315,13 +432,8 @@ function App() {
       const current={x:start.x+dx*progress,y:start.y+dy*progress};
       posRef.current=current;
       
-      if(characterRef.current&&roomRef.current){
-        const x=roomRef.current.clientWidth*current.x/100;
-        const y=roomRef.current.clientHeight*current.y/100;
-        characterRef.current.style.transform=`translate3d(${x}px,${y}px,0) translate(-50%,-50%)`;
-        characterRef.current.style.setProperty("--depth-scale", .84 + current.y * .003);
-      }
-      
+      paintCharacter(roomRef.current, characterRef.current, current);
+
       if(progress<1){
         walkAnimation.current=requestAnimationFrame(tick);
       }else{
@@ -341,7 +453,7 @@ function App() {
     const desks=roomGeometry(room,characterRef.current);
     const hit=desks.find(d=>contains(d.raw,point));
     if(hit){goSkill(hit.code);return;}
-    const next={x:Math.max(3,Math.min(97,point.x/room.clientWidth*100)),y:Math.max(12,Math.min(94,point.y/room.clientHeight*100))};
+    const next=clampRoomPoint({x:point.x/room.clientWidth*100,y:point.y/room.clientHeight*100});
     if(!moveTo(next))notify("จุดนี้เดินไปไม่ได้ ลองเลือกพื้นที่ข้างโต๊ะนะ");
   }
   function goSkill(k){
@@ -601,7 +713,7 @@ function Today({
   return (
     <div className="dashboard pixelDashboard">
       <section className="roomPanel">
-        <div className="room" ref={roomRef} onClick={walk}>
+        <div className="room" ref={roomRef} onClick={walk} title="กด WASD หรือปุ่มลูกศรเพื่อเดิน">
           {Object.entries(SKILLS).map(([k, s]) => (
             <Station key={k} code={k} {...s} onClick={e => { if(e.detail===0){ e.stopPropagation(); goSkill(k); } }} />
           ))}
